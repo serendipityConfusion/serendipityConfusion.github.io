@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/memory/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/protobuffer/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/algorithm/pondSample/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/algorithm/rand/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/golang/gc/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/golang/gmp/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/golang/map/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/golang/sysmon/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/mysql/cacheSync/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2024/04/27/mysql/incr/</loc>
+    
+    <lastmod>2024-04-27</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/2023/10/16/start/</loc>
+    
+    <lastmod>2023-10-16</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+
+  <url>
+    <loc>https://serendipityconfusion.github.io/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/tags/protobuffer/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/tags/algorithm-%E6%A6%82%E7%8E%87%E8%AE%BA/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/tags/golang-map/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/tags/go-schedule/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/tags/mysql-cache/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/tags/mysql%EF%BC%8C%E9%94%81/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/categories/golang/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/categories/proto/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/categories/%E7%BC%96%E7%A8%8B%E7%94%9F%E6%B4%BB/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/categories/algorithm/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://serendipityconfusion.github.io/categories/mysql/</loc>
+    <lastmod>2024-04-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+</urlset>
