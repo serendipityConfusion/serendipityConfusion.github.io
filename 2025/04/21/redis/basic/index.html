@@ -1,0 +1,758 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/global/icon.png">
+  <link rel="icon" href="/global/icon.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="serendipityConfusion">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="Redis是什么？为什么这么快？在如今这个对响应速度要求极高的技术时代，Redis 的出现像是一针强心剂：它简单、快、功能强大，几乎成了后端开发中的“性能神器”。但 Redis 真正的魅力，远不止“做缓存”这么简单。 本篇作为 Redis 系列的开篇文章，我们将从原理角度拆解 Redis 为什么快，以及它是如何凭借设计上的巧思，成为高性能场景下的不二之选。 Redis是什么？Redis（Remot">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis是什么？为什么这么快？">
+<meta property="og:url" content="https://serendipityconfusion.github.io/2025/04/21/redis/basic/index.html">
+<meta property="og:site_name" content="serendipityConfusion">
+<meta property="og:description" content="Redis是什么？为什么这么快？在如今这个对响应速度要求极高的技术时代，Redis 的出现像是一针强心剂：它简单、快、功能强大，几乎成了后端开发中的“性能神器”。但 Redis 真正的魅力，远不止“做缓存”这么简单。 本篇作为 Redis 系列的开篇文章，我们将从原理角度拆解 Redis 为什么快，以及它是如何凭借设计上的巧思，成为高性能场景下的不二之选。 Redis是什么？Redis（Remot">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-04-21T15:46:46.000Z">
+<meta property="article:modified_time" content="2025-06-11T16:53:01.000Z">
+<meta property="article:author" content="serendipityConfusion">
+<meta property="article:tag" content="redis">
+<meta property="article:tag" content="basic">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>Redis是什么？为什么这么快？ - serendipityConfusion</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"serendipityconfusion.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"auto"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null},"woyaola":null,"cnzz":null},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>serendipityConfusion</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Redis是什么？为什么这么快？"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-04-21 23:46" pubdate>
+          2025年4月21日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          885 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          8 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">Redis是什么？为什么这么快？</h1>
+            
+              <p id="updated-time" class="note note-info" style="">
+                
+                  
+                    本文最后更新于 2025年6月12日 凌晨
+                  
+                
+              </p>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="Redis是什么？为什么这么快？"><a href="#Redis是什么？为什么这么快？" class="headerlink" title="Redis是什么？为什么这么快？"></a>Redis是什么？为什么这么快？</h1><p>在如今这个对响应速度要求极高的技术时代，Redis 的出现像是一针强心剂：它简单、快、功能强大，几乎成了后端开发中的“性能神器”。但 Redis 真正的魅力，远不止“做缓存”这么简单。</p>
+<p>本篇作为 Redis 系列的开篇文章，我们将从原理角度拆解 Redis 为什么快，以及它是如何凭借设计上的巧思，成为高性能场景下的不二之选。</p>
+<h2 id="Redis是什么？"><a href="#Redis是什么？" class="headerlink" title="Redis是什么？"></a>Redis是什么？</h2><p>Redis（Remote Dictionary Server） 是完全开源免费的，遵守BSD协议，是一个高性能的key-value数据库。</p>
+<p>Redis 与其他 key - value 缓存产品有以下三个特点：</p>
+<ul>
+<li>Redis支持数据的持久化，可以将内存中的数据保持在磁盘中，重启的时候可以再次加载进行使用。</li>
+<li>Redis不仅仅支持简单的key-value类型的数据，同时还提供多种数据结构的支持<ul>
+<li>List</li>
+<li>Set</li>
+<li>Sorted Set（ZSet）</li>
+<li>Hash</li>
+<li>HyperLogLog，Bitmap，Stream</li>
+</ul>
+</li>
+<li>Redis支持数据的备份，即master-slave模式的数据备份。</li>
+</ul>
+<p>常用于：</p>
+<ul>
+<li>缓存系统</li>
+<li>消息中间件</li>
+<li>排行榜&#x2F;计数器</li>
+<li>地图计算</li>
+<li>签到系统</li>
+</ul>
+<h2 id="Redis-为什么快？"><a href="#Redis-为什么快？" class="headerlink" title="Redis 为什么快？"></a>Redis 为什么快？</h2><p><a target="_blank" rel="noopener" href="https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/">Redis能读的速度是110000次&#x2F;s,写的速度是81000次&#x2F;s </a></p>
+<h3 id="基于内存操作"><a href="#基于内存操作" class="headerlink" title="基于内存操作"></a>基于内存操作</h3><p>Redis 的数据都是保存在内存中的，读写不涉及磁盘（持久化异步线程）</p>
+<h3 id="单线程架构-IO多路复用"><a href="#单线程架构-IO多路复用" class="headerlink" title="单线程架构+IO多路复用"></a>单线程架构+IO多路复用</h3><h4 id="单线程架构：（不代表只有一个线程）"><a href="#单线程架构：（不代表只有一个线程）" class="headerlink" title="单线程架构：（不代表只有一个线程）"></a>单线程架构：（不代表只有一个线程）</h4><ul>
+<li>所有命令执行是串行的，具有天然的原子性<font color='red'><strong>（无锁）</strong></font></li>
+<li>有其他后台线程处理其他任务<ul>
+<li>关闭文件</li>
+<li>AOF刷盘</li>
+<li>异步释放内存</li>
+</ul>
+</li>
+<li>6.0之后多线程处理网络IO任务</li>
+</ul>
+<h4 id="Epoll：IO多路复用，中断机制"><a href="#Epoll：IO多路复用，中断机制" class="headerlink" title="Epoll：IO多路复用，中断机制"></a>Epoll：IO多路复用，中断机制</h4><ul>
+<li>Epoll + 非阻塞IO：可以处理大量的连接</li>
+</ul>
+<p>其他多路复用：</p>
+<ul>
+<li>select：遍历获取准备好的文件描述符，上限1024个，数组中；</li>
+<li>poll：遍历获取准备好的文件描述符，无上限，文件描述符放入链表中；<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="SEQUENCE" height="878px" preserveAspectRatio="none" style="width:894px;height:878px;background:#FFFFFF;" version="1.1" viewBox="0 0 894 878" width="894px" zoomAndPan="magnify"><defs/><g><rect fill="none" height="77.3984" style="stroke:#000000;stroke-width:1.5;" width="646.0749" x="165.2654" y="544.0234"/><g><title>&#23458;&#25143;&#31471;</title><rect fill="#000000" fill-opacity="0.00000" height="716.7891" width="8" x="24.9999" y="81.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="28" x2="28" y1="81.2969" y2="798.0859"/></g><g><title>listen socket</title><rect fill="#000000" fill-opacity="0.00000" height="716.7891" width="8" x="110.1326" y="81.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="113.9998" x2="113.9998" y1="81.2969" y2="798.0859"/></g><g><title>epoll_wait</title><rect fill="#000000" fill-opacity="0.00000" height="716.7891" width="8" x="213.3919" y="81.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="217.2654" x2="217.2654" y1="81.2969" y2="798.0859"/></g><g><title>&#20107;&#20214;&#20998;&#21457;&#22120;</title><rect fill="#000000" fill-opacity="0.00000" height="716.7891" width="8" x="315.392" y="81.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="318.3922" x2="318.3922" y1="81.2969" y2="798.0859"/></g><g><title>&#36830;&#25509;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</title><rect fill="#000000" fill-opacity="0.00000" height="716.7891" width="8" x="443.3921" y="81.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="446.3924" x2="446.3924" y1="81.2969" y2="798.0859"/></g><g><title>&#35835;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</title><rect fill="#000000" fill-opacity="0.00000" height="716.7891" width="8" x="572.3917" y="81.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="575.3919" x2="575.3919" y1="81.2969" y2="798.0859"/></g><g><title>&#20889;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</title><rect fill="#000000" fill-opacity="0.00000" height="716.7891" width="8" x="741.3405" y="81.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="744.3407" x2="744.3407" y1="81.2969" y2="798.0859"/></g><g><title>&#21457;&#36865;&#38431;&#21015;</title><rect fill="#000000" fill-opacity="0.00000" height="716.7891" width="8" x="843.3406" y="81.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="846.3407" x2="846.3407" y1="81.2969" y2="798.0859"/></g><g class="participant participant-head" data-participant="&#23458;&#25143;&#31471;"><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="41.9998" x="5" y="77.9951">&#23458;&#25143;&#31471;</text><ellipse cx="28.9999" cy="13.5" fill="#E2E2F0" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><path d="M28.9999,21.5 L28.9999,48.5 M15.9999,29.5 L41.9999,29.5 M28.9999,48.5 L15.9999,63.5 M28.9999,48.5 L41.9999,63.5" fill="none" style="stroke:#181818;stroke-width:0.5;"/></g><g class="participant participant-tail" data-participant="&#23458;&#25143;&#31471;"><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="41.9998" x="5" y="810.0811">&#23458;&#25143;&#31471;</text><ellipse cx="28.9999" cy="821.8828" fill="#E2E2F0" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><path d="M28.9999,829.8828 L28.9999,856.8828 M15.9999,837.8828 L41.9999,837.8828 M28.9999,856.8828 L15.9999,871.8828 M28.9999,856.8828 L41.9999,871.8828" fill="none" style="stroke:#181818;stroke-width:0.5;"/></g><g class="participant participant-head" data-participant="Listen"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="102.2656" x="62.9998" y="50"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="88.2656" x="69.9998" y="69.9951">listen socket</text></g><g class="participant participant-tail" data-participant="Listen"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="102.2656" x="62.9998" y="797.0859"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="88.2656" x="69.9998" y="817.0811">listen socket</text></g><g class="participant participant-head" data-participant="Epoll"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="84.2529" x="175.2654" y="50"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="70.2529" x="182.2654" y="69.9951">epoll_wait</text></g><g class="participant participant-tail" data-participant="Epoll"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="84.2529" x="175.2654" y="797.0859"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="70.2529" x="182.2654" y="817.0811">epoll_wait</text></g><g class="participant participant-head" data-participant="Dispatcher"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="83.9997" x="277.3922" y="50"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="69.9997" x="284.3922" y="69.9951">&#20107;&#20214;&#20998;&#21457;&#22120;</text></g><g class="participant participant-tail" data-participant="Dispatcher"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="83.9997" x="277.3922" y="797.0859"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="69.9997" x="284.3922" y="817.0811">&#20107;&#20214;&#20998;&#21457;&#22120;</text></g><g class="participant participant-head" data-participant="ConnHandler"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="125.9995" x="384.3924" y="50"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="111.9995" x="391.3924" y="69.9951">&#36830;&#25509;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</text></g><g class="participant participant-tail" data-participant="ConnHandler"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="125.9995" x="384.3924" y="797.0859"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="111.9995" x="391.3924" y="817.0811">&#36830;&#25509;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</text></g><g class="participant participant-head" data-participant="ReadHandler"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="111.9996" x="520.3919" y="50"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="97.9996" x="527.3919" y="69.9951">&#35835;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</text></g><g class="participant participant-tail" data-participant="ReadHandler"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="111.9996" x="520.3919" y="797.0859"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="97.9996" x="527.3919" y="817.0811">&#35835;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</text></g><g class="participant participant-head" data-participant="WriteHandler"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="111.9996" x="689.3407" y="50"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="97.9996" x="696.3407" y="69.9951">&#20889;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</text></g><g class="participant participant-tail" data-participant="WriteHandler"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="111.9996" x="689.3407" y="797.0859"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="97.9996" x="696.3407" y="817.0811">&#20889;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</text></g><g class="participant participant-head" data-participant="SendQueue"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="69.9998" x="812.3407" y="50"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="55.9998" x="819.3407" y="69.9951">&#21457;&#36865;&#38431;&#21015;</text></g><g class="participant participant-tail" data-participant="SendQueue"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="69.9998" x="812.3407" y="797.0859"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="55.9998" x="819.3407" y="817.0811">&#21457;&#36865;&#38431;&#21015;</text></g><rect fill="#EEEEEE" height="3" style="stroke:#EEEEEE;stroke-width:1;" width="887.3405" x="0" y="111.8633"/><line style="stroke:#000000;stroke-width:1;" x1="0" x2="887.3405" y1="111.8633" y2="111.8633"/><line style="stroke:#000000;stroke-width:1;" x1="0" x2="887.3405" y1="114.8633" y2="114.8633"/><rect fill="#EEEEEE" height="23.1328" style="stroke:#000000;stroke-width:2;" width="70.5259" x="408.4073" y="101.2969"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="52.0001" x="414.4073" y="117.3638">&#36830;&#25509;&#24314;&#31435;</text><g class="message" data-participant-1="&#23458;&#25143;&#31471;" data-participant-2="Listen"><polygon fill="#181818" points="102.1326,151.5625,112.1326,155.5625,102.1326,159.5625,106.1326,155.5625" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="28.9999" x2="108.1326" y1="155.5625" y2="155.5625"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="52.0001" x="35.9999" y="150.4966">&#21457;&#36215;&#36830;&#25509;</text></g><g class="message" data-participant-1="Listen" data-participant-2="Epoll"><polygon fill="#181818" points="205.3919,180.6953,215.3919,184.6953,205.3919,188.6953,209.3919,184.6953" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="114.1326" x2="211.3919" y1="184.6953" y2="184.6953"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="78.0001" x="121.1326" y="179.6294">&#35302;&#21457;&#36830;&#25509;&#20107;&#20214;</text></g><g class="message" data-participant-1="Epoll" data-participant-2="Dispatcher"><polygon fill="#181818" points="307.392,209.8281,317.392,213.8281,307.392,217.8281,311.392,213.8281" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="217.3919" x2="313.392" y1="213.8281" y2="213.8281"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="78.0001" x="224.3919" y="208.7622">&#21457;&#29616;&#36830;&#25509;&#20107;&#20214;</text></g><g class="message" data-participant-1="Dispatcher" data-participant-2="ConnHandler"><polygon fill="#181818" points="435.3921,238.9609,445.3921,242.9609,435.3921,246.9609,439.3921,242.9609" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="319.392" x2="441.3921" y1="242.9609" y2="242.9609"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="104.0001" x="326.392" y="237.895">&#35843;&#29992;&#36830;&#25509;&#22788;&#29702;&#20989;&#25968;</text></g><g class="message" data-participant-1="ConnHandler" data-participant-2="ConnHandler"><line style="stroke:#181818;stroke-width:1;" x1="447.3921" x2="489.3921" y1="272.0938" y2="272.0938"/><line style="stroke:#181818;stroke-width:1;" x1="489.3921" x2="489.3921" y1="272.0938" y2="285.0938"/><line style="stroke:#181818;stroke-width:1;" x1="448.3921" x2="489.3921" y1="285.0938" y2="285.0938"/><polygon fill="#181818" points="458.3921,281.0938,448.3921,285.0938,458.3921,289.0938,454.3921,285.0938" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="73.7408" x="454.3921" y="267.0278">accept &#36830;&#25509;</text></g><g class="message" data-participant-1="ConnHandler" data-participant-2="Epoll"><polygon fill="#181818" points="228.3919,310.2266,218.3919,314.2266,228.3919,318.2266,224.3919,314.2266" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="222.3919" x2="446.3921" y1="314.2266" y2="314.2266"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="128.7623" x="234.3919" y="309.1606">&#27880;&#20876; socket &#21644;&#35835;&#20107;&#20214;</text></g><rect fill="#EEEEEE" height="3" style="stroke:#EEEEEE;stroke-width:1;" width="887.3405" x="0" y="342.793"/><line style="stroke:#000000;stroke-width:1;" x1="0" x2="887.3405" y1="342.793" y2="342.793"/><line style="stroke:#000000;stroke-width:1;" x1="0" x2="887.3405" y1="345.793" y2="345.793"/><rect fill="#EEEEEE" height="23.1328" style="stroke:#000000;stroke-width:2;" width="70.5259" x="408.4073" y="332.2266"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="52.0001" x="414.4073" y="348.2935">&#35835;&#21462;&#21629;&#20196;</text><g class="message" data-participant-1="Epoll" data-participant-2="Dispatcher"><polygon fill="#181818" points="307.392,382.4922,317.392,386.4922,307.392,390.4922,311.392,386.4922" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="217.3919" x2="313.392" y1="386.4922" y2="386.4922"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="65.0001" x="224.3919" y="381.4263">&#21457;&#29616;&#35835;&#20107;&#20214;</text></g><g class="message" data-participant-1="Dispatcher" data-participant-2="ReadHandler"><polygon fill="#181818" points="564.3917,411.625,574.3917,415.625,564.3917,419.625,568.3917,415.625" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="319.392" x2="570.3917" y1="415.625" y2="415.625"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="117.0001" x="326.392" y="410.5591">&#35843;&#29992;&#35835;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</text></g><g class="message" data-participant-1="ReadHandler" data-participant-2="ReadHandler"><line style="stroke:#181818;stroke-width:1;" x1="576.3917" x2="618.3917" y1="444.7578" y2="444.7578"/><line style="stroke:#181818;stroke-width:1;" x1="618.3917" x2="618.3917" y1="444.7578" y2="457.7578"/><line style="stroke:#181818;stroke-width:1;" x1="577.3917" x2="618.3917" y1="457.7578" y2="457.7578"/><polygon fill="#181818" points="587.3917,453.7578,577.3917,457.7578,587.3917,461.7578,583.3917,457.7578" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="59.6934" x="583.3917" y="439.6919">read &#25968;&#25454;</text></g><g class="message" data-participant-1="ReadHandler" data-participant-2="ReadHandler"><line style="stroke:#181818;stroke-width:1;" x1="576.3917" x2="618.3917" y1="486.8906" y2="486.8906"/><line style="stroke:#181818;stroke-width:1;" x1="618.3917" x2="618.3917" y1="486.8906" y2="499.8906"/><line style="stroke:#181818;stroke-width:1;" x1="577.3917" x2="618.3917" y1="499.8906" y2="499.8906"/><polygon fill="#181818" points="587.3917,495.8906,577.3917,499.8906,587.3917,503.8906,583.3917,499.8906" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="123.1573" x="583.3917" y="481.8247">&#35299;&#26512;&#21629;&#20196; + &#25191;&#34892;&#21629;&#20196;</text></g><g class="message" data-participant-1="ReadHandler" data-participant-2="SendQueue"><polygon fill="#181818" points="835.3406,525.0234,845.3406,529.0234,835.3406,533.0234,839.3406,529.0234" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="576.3917" x2="841.3406" y1="529.0234" y2="529.0234"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="117.0001" x="583.3917" y="523.9575">&#28155;&#21152;&#21709;&#24212;&#21040;&#21457;&#36865;&#38431;&#21015;</text></g><path d="M165.2654,544.0234 L229.7083,544.0234 L229.7083,551.1563 L219.7083,561.1563 L165.2654,561.1563 L165.2654,544.0234" fill="#EEEEEE" style="stroke:#000000;stroke-width:1.5;"/><rect fill="none" height="77.3984" style="stroke:#000000;stroke-width:1.5;" width="646.0749" x="165.2654" y="544.0234"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="19.4429" x="180.2654" y="557.0903">alt</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="109.054" x="244.7083" y="556.2339">[&#26159;&#21542;&#38656;&#35201;&#31435;&#21363;&#21457;&#36865;&#65311;]</text><g class="message" data-participant-1="ReadHandler" data-participant-2="WriteHandler"><polygon fill="#181818" points="733.3405,578.2891,743.3405,582.2891,733.3405,586.2891,737.3405,582.2891" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="576.3917" x2="739.3405" y1="582.2891" y2="582.2891"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="144.9489" x="583.3917" y="577.2231">&#30452;&#25509;&#35843;&#29992; write &#21457;&#36865;&#25968;&#25454;</text></g><line style="stroke:#000000;stroke-width:1;stroke-dasharray:2.0,2.0;" x1="165.2654" x2="811.3403" y1="591.2891" y2="591.2891"/><g class="message" data-participant-1="ReadHandler" data-participant-2="Epoll"><polygon fill="#181818" points="228.3919,609.4219,218.3919,613.4219,228.3919,617.4219,224.3919,613.4219" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="222.3919" x2="575.3917" y1="613.4219" y2="613.4219"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="65.0001" x="234.3919" y="608.356">&#27880;&#20876;&#20889;&#20107;&#20214;</text></g><rect fill="#EEEEEE" height="3" style="stroke:#EEEEEE;stroke-width:1;" width="887.3405" x="0" y="648.9883"/><line style="stroke:#000000;stroke-width:1;" x1="0" x2="887.3405" y1="648.9883" y2="648.9883"/><line style="stroke:#000000;stroke-width:1;" x1="0" x2="887.3405" y1="651.9883" y2="651.9883"/><rect fill="#EEEEEE" height="23.1328" style="stroke:#000000;stroke-width:2;" width="57.5259" x="414.9073" y="638.4219"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="39" x="420.9073" y="654.4888">&#20889;&#21709;&#24212;</text><g class="message" data-participant-1="Epoll" data-participant-2="Dispatcher"><polygon fill="#181818" points="307.392,688.6875,317.392,692.6875,307.392,696.6875,311.392,692.6875" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="217.3919" x2="313.392" y1="692.6875" y2="692.6875"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="65.0001" x="224.3919" y="687.6216">&#21457;&#29616;&#20889;&#20107;&#20214;</text></g><g class="message" data-participant-1="Dispatcher" data-participant-2="WriteHandler"><polygon fill="#181818" points="733.3405,717.8203,743.3405,721.8203,733.3405,725.8203,737.3405,721.8203" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="319.392" x2="739.3405" y1="721.8203" y2="721.8203"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="117.0001" x="326.392" y="716.7544">&#35843;&#29992;&#20889;&#20107;&#20214;&#22788;&#29702;&#20989;&#25968;</text></g><g class="message" data-participant-1="WriteHandler" data-participant-2="SendQueue"><polygon fill="#181818" points="835.3406,746.9531,845.3406,750.9531,835.3406,754.9531,839.3406,750.9531" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="745.3405" x2="841.3406" y1="750.9531" y2="750.9531"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="78.0001" x="752.3405" y="745.8872">&#36941;&#21382;&#21457;&#36865;&#38431;&#21015;</text></g><g class="message" data-participant-1="WriteHandler" data-participant-2="&#23458;&#25143;&#31471;"><polygon fill="#181818" points="39.9999,776.0859,29.9999,780.0859,39.9999,784.0859,35.9999,780.0859" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="33.9999" x2="744.3405" y1="780.0859" y2="780.0859"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="88.8165" x="45.9999" y="775.02">write &#21457;&#36865;&#25968;&#25454;</text></g><!--SRC=[XPFDRjD04CVl-nIZNX4lK2cz058FN813ZsZbh8I5vLZsLhqs0fb0yqbRQ0LgwGT9f4fDf0AHOYfU9cCxfxv2rrxZx3fkUzoPttyqyvzPQl2Q2tXv6ZOcqSM8EDJbfc4wrEQmOfaUPpPuDUCjuoj0FNYUHdIAEJNBUhr5JOayIvuwCPlkp88_sF2nqyF3OOezDJs7SkCDStKs_dSKjdzcYlFtKTV73zVX_ZWLFQdPzZgrgzQIQXJS8Nd9QBLKWlxX7P8Dr-IiNDFfpRVhyuDZR7nDqLVChhxOP9kCa4e5PEyOJAEB7QXKI6uhF5xBh8DL44NYtnF9aYmgygbl8XqF-WcXs41aIZ0BqsITg3tMG2KlQCMjfExuNRGtp5fKHYOgjgIYXi4SdarMHF-t75uDqMzcTmBukPclGzeo2h3p1NlNi-0yiUNUSNAbFekoniKiPKidAhaaTCKB11MsBky7uy5PUDJDUdu4uST1VDAKpw8mlu74YKc0dtxWRWkdUzWOg_T2gCKXF1XXjp__lXttw-98i7KbaPk_nmIWK5YzGr4x-lPBx42E3bj93gGucuTP7bikekyeFteYcawN8oAotOSsiv3gcobqAVih_Ln4GmlEpUijRFkQOKLyyPrMI-Q_1G00]--></g></svg></li>
+</ul>
+<h3 id="数据结构设计"><a href="#数据结构设计" class="headerlink" title="数据结构设计"></a>数据结构设计</h3><p>Redis的数据结构设计，进行了高度的优化，根据场景使用，保证更加的高效</p>
+<ul>
+<li>String（字符串）</li>
+<li>Hash（哈希）</li>
+<li>List（链表）</li>
+<li>Set（集合）</li>
+<li>Sorted Set（有序集合）</li>
+<li>Stream（流）</li>
+<li>Bitmap（位图）</li>
+<li>BitField（位字段）</li>
+<li>GeoSpatial（地理空间）</li>
+<li>HyperLogLog（基数统计）</li>
+</ul>
+<a href="/2025/04/21/redis/struct/" title="数据结构">数据结构详解</a>
+
+<h3 id="底层构建"><a href="#底层构建" class="headerlink" title="底层构建"></a>底层构建</h3><p>redis底层构建了 VM 机制，将冷数据交换到磁盘中，实现冷热分离，避免内存不足导致的访问速度下降；</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>redis的性能是架构和实现深层次的工程决策</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/redis/" class="category-chain-item">redis</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/redis/" class="print-no-link">#redis</a>
+      
+        <a href="/tags/basic/" class="print-no-link">#basic</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Redis是什么？为什么这么快？</div>
+      <div>https://serendipityconfusion.github.io/2025/04/21/redis/basic/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>serendipityConfusion</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年4月21日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2025/04/21/redis/struct/" title="数据结构">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">数据结构</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/04/15/mysql/insert-flow/" title="insert_flow">
+                        <span class="hidden-mobile">insert_flow</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#comments', function() {
+      var light = 'github-light';
+      var dark = 'github-dark';
+      var schema = document.documentElement.getAttribute('data-user-color-scheme');
+      if (schema === 'dark') {
+        schema = dark;
+      } else {
+        schema = light;
+      }
+      window.UtterancesThemeLight = light;
+      window.UtterancesThemeDark = dark;
+      var s = document.createElement('script');
+      s.setAttribute('src', 'https://utteranc.es/client.js');
+      s.setAttribute('repo', 'serendipityConfusion/serendipityConfusion.github.io');
+      s.setAttribute('issue-term', 'pathname');
+      
+      s.setAttribute('label', 'utterances');
+      
+      s.setAttribute('theme', schema);
+      s.setAttribute('crossorigin', 'anonymous');
+      document.getElementById('comments').appendChild(s);
+    })
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script  src="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js" ></script>
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

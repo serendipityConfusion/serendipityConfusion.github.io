@@ -1,0 +1,810 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/global/icon.png">
+  <link rel="icon" href="/global/icon.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="serendipityConfusion">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="Redis 持久化机制持久化的意义：为了保证异常情况下的数据安全 redis的持久化机制主要包含RDB，AOF，混合三种模式； 前置知识COW（Copy On Write） 写时拷贝技术（将复制操作推迟到第一次修改数据）； 核心思想:如果有多个调用者（callers）同时请求相同资源（如内存或磁盘上的数据存储），他们会共同获取相同的指针指向相同的资源，直到某个调用者试图修改资源的内容时，系统才会真">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis 持久化机制">
+<meta property="og:url" content="https://serendipityconfusion.github.io/2025/04/24/redis/persistence/index.html">
+<meta property="og:site_name" content="serendipityConfusion">
+<meta property="og:description" content="Redis 持久化机制持久化的意义：为了保证异常情况下的数据安全 redis的持久化机制主要包含RDB，AOF，混合三种模式； 前置知识COW（Copy On Write） 写时拷贝技术（将复制操作推迟到第一次修改数据）； 核心思想:如果有多个调用者（callers）同时请求相同资源（如内存或磁盘上的数据存储），他们会共同获取相同的指针指向相同的资源，直到某个调用者试图修改资源的内容时，系统才会真">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-04-24T15:22:33.000Z">
+<meta property="article:modified_time" content="2025-06-11T16:53:01.000Z">
+<meta property="article:author" content="serendipityConfusion">
+<meta property="article:tag" content="redis">
+<meta property="article:tag" content="persistence">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>Redis 持久化机制 - serendipityConfusion</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"serendipityconfusion.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"auto"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null},"woyaola":null,"cnzz":null},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>serendipityConfusion</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Redis 持久化机制"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-04-24 23:22" pubdate>
+          2025年4月24日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.2k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          19 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">Redis 持久化机制</h1>
+            
+              <p id="updated-time" class="note note-info" style="">
+                
+                  
+                    本文最后更新于 2025年6月12日 凌晨
+                  
+                
+              </p>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="Redis-持久化机制"><a href="#Redis-持久化机制" class="headerlink" title="Redis 持久化机制"></a>Redis 持久化机制</h1><p>持久化的意义：为了保证异常情况下的数据安全</p>
+<p>redis的持久化机制主要包含RDB，AOF，混合三种模式；</p>
+<h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><p>COW（Copy On Write） 写时拷贝技术（将复制操作推迟到第一次修改数据）；</p>
+<h3 id="核心思想"><a href="#核心思想" class="headerlink" title="核心思想:"></a>核心思想:</h3><p>如果有多个调用者（callers）同时请求相同资源（如内存或磁盘上的数据存储），他们会共同获取相同的指针指向相同的资源，直到某个调用者试图修改资源的内容时，系统才会真正复制一份专用副本（private copy）给该调用者，而其他调用者所见到的最初的资源仍然保持不变</p>
+<h2 id="RDB持久化"><a href="#RDB持久化" class="headerlink" title="RDB持久化"></a>RDB持久化</h2><h3 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h3><p>RDB持久化指在指定的时间间隔内将内存中的数据快照写入磁盘；<br>RDB是默认的持久化方式，默认文件名为 dump.rdb;</p>
+<h3 id="触发方式"><a href="#触发方式" class="headerlink" title="触发方式"></a>触发方式</h3><p><code>save</code>（阻塞） 和 <code>bgsave</code></p>
+<p>配置触发：<code>save &lt;seconds&gt; &lt;change-key-number&gt;</code> 在指定seconds内，若key的变更数达到了<code>change-key-number</code>，则触发保存</p>
+<h3 id="优缺点"><a href="#优缺点" class="headerlink" title="优缺点"></a>优缺点</h3><ul>
+<li>优点：<ul>
+<li>RDB文件紧凑（二进制），全量备份，适合用于备份和容灾</li>
+<li>生成RDB文件支持异步处理，主进程不需要IO操作</li>
+<li>RDB在恢复大数据集时的速度比AOF更快</li>
+</ul>
+</li>
+<li>缺点<ul>
+<li>RDB是一次全量备份的，存储二进制序列化数据，且在快照持久化期间修改的数据不会被保存，可能丢失数据（宕机情况）。</li>
+<li>RDB 只会在触发快照时保存数据，快照间隔期间的数据变更若未持久化，宕机时会丢失；</li>
+</ul>
+</li>
+</ul>
+<h3 id="适用场景"><a href="#适用场景" class="headerlink" title="适用场景"></a>适用场景</h3><ul>
+<li>适用于对数据安全性要求不是极致苛刻、允许短时间数据丢失的场景，如缓存型业务、周期性全量备份、灾备容灾等。</li>
+<li>适合数据量较大、恢复速度要求高的场合。</li>
+<li>适合主从复制、定期快照归档等对性能有较高要求的业务。</li>
+</ul>
+<h3 id="bgsave的执行流程"><a href="#bgsave的执行流程" class="headerlink" title="bgsave的执行流程"></a>bgsave的执行流程</h3><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="ACTIVITY" height="1159px" preserveAspectRatio="none" style="width:1080px;height:1159px;background:#FFFFFF;" version="1.1" viewBox="0 0 1080 1159" width="1080px" zoomAndPan="magnify"><title>Redis BGSAVE &#20027;&#65288;&#29238;&#65289;&#36827;&#31243; vs &#23376;&#36827;&#31243;&#27969;&#31243;&#22270;</title><defs/><g><g class="title" data-source-line="1"><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="311.8616" x="382.6712" y="32.9951">Redis BGSAVE &#20027;&#65288;&#29238;&#65289;&#36827;&#31243; vs &#23376;&#36827;&#31243;&#27969;&#31243;&#22270;</text></g><rect fill="none" height="20.9531" style="stroke:none;stroke-width:1;" width="1047.204" x="15" y="50.042"/><ellipse cx="267.986" cy="85.9951" fill="#222222" rx="10" ry="10" style="stroke:#222222;stroke-width:1;"/><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="147.2188" x="194.3766" y="115.9951"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="127.2188" x="204.3766" y="137.1338">BGSAVE [SCHEDULE]</text><polygon fill="#F1F1F1" points="176.5409,169.9639,359.4311,169.9639,371.4311,181.9639,359.4311,193.9639,176.5409,193.9639,164.5409,181.9639,176.5409,169.9639" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="182.8902" x="176.5409" y="185.772">&#26159;&#21542;&#23384;&#22312;&#23376;&#36827;&#31243;&#22312;&#25191;&#34892;BGSAVE&#25805;&#20316;?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="153.5409" y="179.3696">&#26159;</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="371.4311" y="179.3696">&#21542;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="92.0005" x="21" y="203.9639"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="72.0005" x="31" y="225.1025">&#36820;&#22238;&#38169;&#35823;&#20449;&#24687;</text><ellipse cx="67.0003" cy="283.9326" fill="none" rx="11" ry="11" style="stroke:#222222;stroke-width:1;"/><ellipse cx="67.0003" cy="283.9326" fill="#222222" rx="6" ry="6" style="stroke:#222222;stroke-width:1;"/><polygon fill="#F1F1F1" points="402.262,203.9639,615.6813,203.9639,627.6813,215.9639,615.6813,227.9639,402.262,227.9639,390.262,215.9639,402.262,203.9639" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="213.4193" x="402.262" y="219.772">&#26159;&#21542;&#23384;&#22312;RDB/AOF/&#27169;&#22359;&#30340;&#23376;&#36827;&#31243;&#27491;&#22312;&#25191;&#34892;?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="379.2621" y="213.3696">&#26159;</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="627.6813" y="213.3696">&#21542;</text><polygon fill="#F1F1F1" points="307.6628,237.9639,438.9856,237.9639,450.9856,249.9639,438.9856,261.9639,307.6628,261.9639,295.6628,249.9639,307.6628,237.9639" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="131.3228" x="307.6628" y="253.772">&#26159;&#21542;&#20351;&#29992;SCHEDULE&#21442;&#25968;?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="284.6629" y="247.3696">&#26159;</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="450.9856" y="247.3696">&#21542;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="68.0004" x="220.4194" y="271.9639"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="48.0004" x="230.4194" y="293.1025">&#25171;&#19978;&#26631;&#35782;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="189.1494" x="159.8449" y="340.9326"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="169.1494" x="169.8449" y="362.0713">&#20043;&#21518;&#22312;&#26102;&#38388;&#20107;&#20214;&#20013;&#35302;&#21457;BGSAVE</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="105.811" x="201.5141" y="409.9014"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="85.811" x="211.5141" y="431.04">&#35302;&#21457;RDB&#21518;&#21488;&#20889;</text><polygon fill="#F1F1F1" points="191.0008,463.8701,317.8384,463.8701,329.8384,475.8701,317.8384,487.8701,191.0008,487.8701,179.0008,475.8701,191.0008,463.8701" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="126.8375" x="191.0008" y="479.6782">&#26159;&#21542;&#23384;&#22312;&#23376;&#36827;&#31243;&#27491;&#22312;&#25191;&#34892;?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="168.0009" y="473.2759">&#26159;</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="329.8384" y="473.2759">&#21542;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="92.0005" x="123.0005" y="497.8701"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="72.0005" x="133.0005" y="519.0088">&#36820;&#22238;&#38169;&#35823;&#20449;&#24687;</text><ellipse cx="169.0008" cy="562.8389" fill="none" rx="11" ry="11" style="stroke:#222222;stroke-width:1;"/><ellipse cx="169.0008" cy="562.8389" fill="#222222" rx="6" ry="6" style="stroke:#222222;stroke-width:1;"/><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="79.4495" x="300.1136" y="497.8701"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="59.4495" x="310.1136" y="519.0088">fork&#23376;&#36827;&#31243;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="152.7802" x="263.4483" y="551.8389"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="132.7802" x="273.4483" y="572.9775">&#35760;&#24405;&#23376;&#36827;&#31243;ID&#31561;&#30456;&#20851;&#20449;&#24687;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="128.0008" x="275.838" y="605.8076"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="108.0008" x="285.838" y="626.9463">&#27491;&#24120;&#22788;&#29702;&#23458;&#25143;&#31471;&#35831;&#27714;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="92.0005" x="446.2285" y="271.9639"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="72.0005" x="456.2285" y="293.1025">&#36820;&#22238;&#38169;&#35823;&#20449;&#24687;</text><ellipse cx="492.2287" cy="351.9326" fill="none" rx="11" ry="11" style="stroke:#222222;stroke-width:1;"/><ellipse cx="492.2287" cy="351.9326" fill="#222222" rx="6" ry="6" style="stroke:#222222;stroke-width:1;"/><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="79.4495" x="604.8944" y="237.9639"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="59.4495" x="614.8944" y="259.1025">fork&#23376;&#36827;&#31243;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="152.7802" x="568.229" y="306.9326"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="132.7802" x="578.229" y="328.0713">&#35760;&#24405;&#23376;&#36827;&#31243;ID&#31561;&#30456;&#20851;&#20449;&#24687;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="128.0008" x="580.6187" y="375.9014"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="108.0008" x="590.6187" y="397.04">&#27491;&#24120;&#22788;&#29702;&#23458;&#25143;&#31471;&#35831;&#27714;</text><polygon fill="#F1F1F1" points="508.9716,649.7764,520.9716,661.7764,508.9716,673.7764,496.9716,661.7764,508.9716,649.7764" style="stroke:#181818;stroke-width:0.5;"/><line style="stroke:#000000;stroke-width:1.5;" x1="15" x2="15" y1="50.042" y2="1147.5264"/><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="68.2578" x="859.5473" y="693.7764"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="48.2578" x="869.5473" y="714.915">rdbsave</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="92.0005" x="847.6759" y="747.7451"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="72.0005" x="857.6759" y="768.8838">&#21019;&#24314;&#20020;&#26102;&#25991;&#20214;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="325.334" x="731.0092" y="801.7139"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="305.334" x="741.0092" y="822.8525">&#20889;&#20837; Redis &#39764;&#27861;&#20540;&#12289;&#29256;&#26412;&#21495;&#12289;&#22797;&#21046;ID&#12289;&#22797;&#21046;&#20559;&#31227;&#37327;&#31561;&#20449;&#24687;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="284.002" x="751.6752" y="855.6826"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="264.002" x="761.6752" y="876.8213">&#36941;&#21382;&#25968;&#25454;&#24211;&#25152;&#26377;&#38190;&#20540;&#21450;&#36807;&#26399;&#26102;&#38388;&#24182;&#20445;&#23384;&#21040;&#20020;&#26102;&#25991;&#20214;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="322.1574" x="732.5975" y="909.6514"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="302.1574" x="742.5975" y="930.79">&#20889;&#20837; Lua &#33050;&#26412;&#12289;RDB_OPCODE_EOF &#32467;&#26463;&#26631;&#24535;&#12289;&#26657;&#39564;&#21644;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="128.0008" x="829.6758" y="963.6201"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="108.0008" x="839.6758" y="984.7588">&#23558;&#20020;&#26102;&#25991;&#20214;&#21047;&#20837;&#30913;&#30424;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="185.4405" x="800.956" y="1017.5889"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="165.4405" x="810.956" y="1038.7275">&#29992;&#20020;&#26102;&#25991;&#20214;&#26367;&#25442;&#26087;&#30340; RDB &#25991;&#20214;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="155.2468" x="816.0528" y="1071.5576"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="135.2468" x="826.0528" y="1092.6963">&#35760;&#24405; SAVE &#30340;&#26102;&#38388;&#21644;&#29366;&#24577;</text><ellipse cx="893.6762" cy="1136.5264" fill="none" rx="11" ry="11" style="stroke:#222222;stroke-width:1;"/><ellipse cx="893.6762" cy="1136.5264" fill="#222222" rx="6" ry="6" style="stroke:#222222;stroke-width:1;"/><line style="stroke:#000000;stroke-width:1.5;" x1="725.0092" x2="725.0092" y1="50.042" y2="1147.5264"/><line style="stroke:#000000;stroke-width:1.5;" x1="1060.3432" x2="1060.3432" y1="50.042" y2="1147.5264"/><line style="stroke:#181818;stroke-width:1;" x1="267.986" x2="267.986" y1="95.9951" y2="115.9951"/><polygon fill="#181818" points="263.986,105.9951,267.986,115.9951,271.986,105.9951,267.986,109.9951" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="67.0003" x2="67.0003" y1="237.9326" y2="272.9326"/><polygon fill="#181818" points="63.0003,262.9326,67.0003,272.9326,71.0003,262.9326,67.0003,266.9326" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="254.4196" x2="254.4196" y1="305.9326" y2="340.9326"/><polygon fill="#181818" points="250.4196,330.9326,254.4196,340.9326,258.4196,330.9326,254.4196,334.9326" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="254.4196" x2="254.4196" y1="374.9014" y2="409.9014"/><polygon fill="#181818" points="250.4196,399.9014,254.4196,409.9014,258.4196,399.9014,254.4196,403.9014" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="169.0008" x2="169.0008" y1="531.8389" y2="551.8389"/><polygon fill="#181818" points="165.0008,541.8389,169.0008,551.8389,173.0008,541.8389,169.0008,545.8389" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="339.8384" x2="339.8384" y1="531.8389" y2="551.8389"/><polygon fill="#181818" points="335.8384,541.8389,339.8384,551.8389,343.8384,541.8389,339.8384,545.8389" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="339.8384" x2="339.8384" y1="585.8076" y2="605.8076"/><polygon fill="#181818" points="335.8384,595.8076,339.8384,605.8076,343.8384,595.8076,339.8384,599.8076" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="179.0008" x2="169.0008" y1="475.8701" y2="475.8701"/><line style="stroke:#181818;stroke-width:1;" x1="169.0008" x2="169.0008" y1="475.8701" y2="497.8701"/><polygon fill="#181818" points="165.0008,487.8701,169.0008,497.8701,173.0008,487.8701,169.0008,491.8701" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="329.8384" x2="339.8384" y1="475.8701" y2="475.8701"/><line style="stroke:#181818;stroke-width:1;" x1="339.8384" x2="339.8384" y1="475.8701" y2="497.8701"/><polygon fill="#181818" points="335.8384,487.8701,339.8384,497.8701,343.8384,487.8701,339.8384,491.8701" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="339.8384" x2="339.8384" y1="639.7764" y2="661.7764"/><line style="stroke:#181818;stroke-width:1;" x1="339.8384" x2="496.9716" y1="661.7764" y2="661.7764"/><polygon fill="#181818" points="486.9716,657.7764,496.9716,661.7764,486.9716,665.7764,490.9716,661.7764" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="254.4196" x2="254.4196" y1="443.8701" y2="463.8701"/><polygon fill="#181818" points="250.4196,453.8701,254.4196,463.8701,258.4196,453.8701,254.4196,457.8701" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="492.2287" x2="492.2287" y1="305.9326" y2="340.9326"/><polygon fill="#181818" points="488.2287,330.9326,492.2287,340.9326,496.2287,330.9326,492.2287,334.9326" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="295.6628" x2="254.4196" y1="249.9639" y2="249.9639"/><line style="stroke:#181818;stroke-width:1;" x1="254.4196" x2="254.4196" y1="249.9639" y2="271.9639"/><polygon fill="#181818" points="250.4196,261.9639,254.4196,271.9639,258.4196,261.9639,254.4196,265.9639" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="450.9856" x2="492.2287" y1="249.9639" y2="249.9639"/><line style="stroke:#181818;stroke-width:1;" x1="492.2287" x2="492.2287" y1="249.9639" y2="271.9639"/><polygon fill="#181818" points="488.2287,261.9639,492.2287,271.9639,496.2287,261.9639,492.2287,265.9639" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="644.6191" x2="644.6191" y1="271.9326" y2="306.9326"/><polygon fill="#181818" points="640.6191,296.9326,644.6191,306.9326,648.6191,296.9326,644.6191,300.9326" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="644.6191" x2="644.6191" y1="340.9014" y2="375.9014"/><polygon fill="#181818" points="640.6191,365.9014,644.6191,375.9014,648.6191,365.9014,644.6191,369.9014" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="390.262" x2="373.3242" y1="215.9639" y2="215.9639"/><line style="stroke:#181818;stroke-width:1;" x1="373.3242" x2="373.3242" y1="215.9639" y2="237.9639"/><polygon fill="#181818" points="369.3242,227.9639,373.3242,237.9639,377.3242,227.9639,373.3242,231.9639" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="627.6813" x2="644.6191" y1="215.9639" y2="215.9639"/><line style="stroke:#181818;stroke-width:1;" x1="644.6191" x2="644.6191" y1="215.9639" y2="237.9639"/><polygon fill="#181818" points="640.6191,227.9639,644.6191,237.9639,648.6191,227.9639,644.6191,231.9639" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="644.6191" x2="644.6191" y1="409.8701" y2="661.7764"/><line style="stroke:#181818;stroke-width:1;" x1="644.6191" x2="520.9716" y1="661.7764" y2="661.7764"/><polygon fill="#181818" points="530.9716,657.7764,520.9716,661.7764,530.9716,665.7764,526.9716,661.7764" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="164.5409" x2="67.0003" y1="181.9639" y2="181.9639"/><line style="stroke:#181818;stroke-width:1;" x1="67.0003" x2="67.0003" y1="181.9639" y2="203.9639"/><polygon fill="#181818" points="63.0003,193.9639,67.0003,203.9639,71.0003,193.9639,67.0003,197.9639" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="371.4311" x2="508.9716" y1="181.9639" y2="181.9639"/><line style="stroke:#181818;stroke-width:1;" x1="508.9716" x2="508.9716" y1="181.9639" y2="203.9639"/><polygon fill="#181818" points="504.9716,193.9639,508.9716,203.9639,512.9716,193.9639,508.9716,197.9639" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="508.9716" x2="508.9716" y1="673.7764" y2="678.7764"/><line style="stroke:#181818;stroke-width:1;" x1="508.9716" x2="893.6762" y1="678.7764" y2="678.7764"/><line style="stroke:#181818;stroke-width:1;" x1="893.6762" x2="893.6762" y1="678.7764" y2="693.7764"/><polygon fill="#181818" points="889.6762,683.7764,893.6762,693.7764,897.6762,683.7764,893.6762,687.7764" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="267.986" x2="267.986" y1="149.9639" y2="169.9639"/><polygon fill="#181818" points="263.986,159.9639,267.986,169.9639,271.986,159.9639,267.986,163.9639" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="893.6762" x2="893.6762" y1="727.7451" y2="747.7451"/><polygon fill="#181818" points="889.6762,737.7451,893.6762,747.7451,897.6762,737.7451,893.6762,741.7451" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="893.6762" x2="893.6762" y1="781.7139" y2="801.7139"/><polygon fill="#181818" points="889.6762,791.7139,893.6762,801.7139,897.6762,791.7139,893.6762,795.7139" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="893.6762" x2="893.6762" y1="835.6826" y2="855.6826"/><polygon fill="#181818" points="889.6762,845.6826,893.6762,855.6826,897.6762,845.6826,893.6762,849.6826" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="893.6762" x2="893.6762" y1="889.6514" y2="909.6514"/><polygon fill="#181818" points="889.6762,899.6514,893.6762,909.6514,897.6762,899.6514,893.6762,903.6514" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="893.6762" x2="893.6762" y1="943.6201" y2="963.6201"/><polygon fill="#181818" points="889.6762,953.6201,893.6762,963.6201,897.6762,953.6201,893.6762,957.6201" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="893.6762" x2="893.6762" y1="997.5889" y2="1017.5889"/><polygon fill="#181818" points="889.6762,1007.5889,893.6762,1017.5889,897.6762,1007.5889,893.6762,1011.5889" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="893.6762" x2="893.6762" y1="1051.5576" y2="1071.5576"/><polygon fill="#181818" points="889.6762,1061.5576,893.6762,1071.5576,897.6762,1061.5576,893.6762,1065.5576" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="893.6762" x2="893.6762" y1="1105.5264" y2="1125.5264"/><polygon fill="#181818" points="889.6762,1115.5264,893.6762,1125.5264,897.6762,1115.5264,893.6762,1119.5264" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="18" lengthAdjust="spacing" textLength="107.9994" x="316.0049" y="66.75">&#20027;&#65288;&#29238;&#65289;&#36827;&#31243;</text><text fill="#000000" font-family="sans-serif" font-size="18" lengthAdjust="spacing" textLength="53.9997" x="865.6764" y="66.75">&#23376;&#36827;&#31243;</text><!--SRC=[ZLHTJzfG6BxlhpYNUkKzN2mgk9cOi6YscsKnB9ICpEW2p2ikg45e-R1CO825AUg4R8EowA3oiVwOzJsdlV8lx9H2nv2vzQ8vVJ-Uvta_JiE1y0wBDbbV88HM7cyjFtSZJUdV3NZ2T-u6WgvAf952-o44pQprWRzpz0tI3oPoFpB2XCBUO9XnZB5URAq-SRkURRXVEfc07otWaWpPAsYMeDAm4UaP2tMzbhQIS2wZ3IkF5b7uDRixIbba47BeQXwaZqQ-hCkofjOm9pkfEHJUUykmEo4MBL1WCt2MPjErihJiMLl2ZHfKY-GazhkIveLDFKitZQCDLP9lJ2e1yG0NslVZgKGiv3GbYSyIkXntJepQRGgoHoPHiMCKRxHUIkjtDAMfrwz0V6-LR0TRHYhPJ17R42zFN7_jtiDLMAXpMsSzemPQnp_QE4xrxmNVs5JEASXM6uO5sxFk8as1I0eSNiyIE4o1YWANCPADG-iSyrtoHTRbBlvsC8bYTtq1FpDNmmFYRUcJz9daUUB_K_Y_H5kCrfk9s6WHnX7qlGfvzradum1UWdvFKsxeuF6719swQOoNuV3J-C8PpJo-Ba1qy3FA4O77bQyWTkaPBZF0TzPTzX4uaTJxHaAaOYSo7GQNWQCutKMSQK4lXuKehWX6laNnG4pgQW9NJgsTWzkEfbRDlU7Ry_LilFCYFNP25L1EkdxRdgUh7fTxs-rPGwIVmzLJkjMW5gaNdzMCpsauJflPxVWq7l1T2aOkE2ALg9TUccalbbISESV5Ehs3Y78WMuGr4pJwOr3dMFHncYGxECev6NFGlm00]--></g></svg>
+
+<h2 id="AOF持久化机制"><a href="#AOF持久化机制" class="headerlink" title="AOF持久化机制"></a>AOF持久化机制</h2><h3 id="介绍-1"><a href="#介绍-1" class="headerlink" title="介绍"></a>介绍</h3><p>AOF：写，删除，修改命令追加写入</p>
+<p>随着时间推移，AOF持久化文件会不断变大；为了解决此问题，Redis 提供了 <code>bgrewriteaof</code> 命令，作用是fork一个新进程将内存中的数据以命令的方式保存到临时文件中，完成对于<code>AOF文件重写</code></p>
+<h3 id="配置开启和触发"><a href="#配置开启和触发" class="headerlink" title="配置开启和触发"></a>配置开启和触发</h3><p>开启：<code>appendonly yes</code></p>
+<p>aof文件名：AOF 文件名通过 <code>appendfilename</code> 配置，默认 <code>appendonly.aof</code></p>
+<p>aof刷盘策略：<code>appendfsync &lt;strategy&gt;</code></p>
+<ul>
+<li><code>always</code>:每次写操作都进行 fsync，最安全但是性能最差</li>
+<li><code>everysec</code>: 每秒进行一次fsync（推荐，兼顾性能和安全）</li>
+<li><code>no</code>:操作系统决定何时 fsync，性能最好但可能丢数据</li>
+</ul>
+<p>aof重写：自动瘦身，通过 <code>bgrewriteaof</code> 命令或者配置自动触发实现</p>
+<ul>
+<li><code>auto-aof-rewrite-percentage 100</code></li>
+<li><code>auto-aof-rewrite-min-size 64mb</code></li>
+</ul>
+<p>当 AOF 文件大小是上次重写后大小的 N% 且文件超过 M 大小时触发重写<br>如果 AOF 文件大小大于 64MB 且增长了一倍，则触发重写</p>
+<p>重写时是否压缩输出命令：是否分批写入，降低IO峰值</p>
+<p><code>aof-rewrite-incremental-fsync yes</code></p>
+<p>重写触发： <code>bgrewriteaof</code></p>
+<h3 id="优缺点-1"><a href="#优缺点-1" class="headerlink" title="优缺点"></a>优缺点</h3><ul>
+<li>优点<ul>
+<li>更好的保护数据不丢失，一般每秒执行一次 fsync 操作同步指令</li>
+<li>aof文件顺序写入，性能较高，顺序写磁盘比随机写性能更优</li>
+<li>aof文件过大，会重写，不会影响客户端读写；<ul>
+<li><font color='red'>重写时新增的命令会被放入aof缓冲区中，保证数据不丢失；aof缓冲区满，阻塞写操作</font></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>缺点<ul>
+<li>占用空间大</li>
+<li>AOF文件才用先写日志在执行命令的方式，提升数据的安全性，但可能带来一定的性能损耗；<ul>
+<li>解决：<ul>
+<li>降低 aof 刷盘频率</li>
+<li>开启 aof 重写缓冲区</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="适用场景-1"><a href="#适用场景-1" class="headerlink" title="适用场景"></a>适用场景</h3><ul>
+<li>适用于对数据持久性要求极高、不能容忍数据丢失的金融、电商订单等核心业务。</li>
+<li>适合需要实时记录每一次写操作、追溯数据变更历史的场景。</li>
+<li>适合对恢复精度要求高、但可接受一定性能损耗的业务。</li>
+</ul>
+<h3 id="bgrewriteaof-流程"><a href="#bgrewriteaof-流程" class="headerlink" title="bgrewriteaof 流程"></a>bgrewriteaof 流程</h3><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="SEQUENCE" height="1182px" preserveAspectRatio="none" style="width:777px;height:1182px;background:#FFFFFF;" version="1.1" viewBox="0 0 777 1182" width="777px" zoomAndPan="magnify"><defs/><g><rect fill="none" height="1063.2031" style="stroke:#000000;stroke-width:1.5;" width="760.6035" x="10" y="95.4297"/><rect fill="none" height="975.1328" style="stroke:#000000;stroke-width:1.5;" width="740.6035" x="20" y="176.5"/><rect fill="none" height="844.9297" style="stroke:#000000;stroke-width:1.5;" width="720.6035" x="30" y="299.7031"/><rect fill="none" height="131.3359" style="stroke:#000000;stroke-width:1.5;" width="295.0002" x="377.0002" y="708.1016"/><g><title>&#20027;&#65288;&#29238;&#65289;&#36827;&#31243;</title><rect fill="#000000" fill-opacity="0.00000" height="1139.3359" width="8" x="114.9998" y="36.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="118" x2="118" y1="36.2969" y2="1175.6328"/></g><g><title>&#23376;&#36827;&#31243;</title><rect fill="#000000" fill-opacity="0.00000" height="1139.3359" width="8" x="441.0001" y="36.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="444.0002" x2="444.0002" y1="36.2969" y2="1175.6328"/></g><g class="participant participant-head" data-participant="Main"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="97.9996" x="70" y="5"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="83.9996" x="77" y="24.9951">&#20027;&#65288;&#29238;&#65289;&#36827;&#31243;</text></g><g class="participant participant-head" data-participant="Child"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="55.9998" x="417.0002" y="5"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="41.9998" x="424.0002" y="24.9951">&#23376;&#36827;&#31243;</text></g><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="67.4297" y2="67.4297"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="67.4297" y2="80.4297"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="80.4297" y2="80.4297"/><polygon fill="#181818" points="129.9998,76.4297,119.9998,80.4297,129.9998,84.4297" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="104.7173" x="125.9998" y="62.3638">BGREWRITEAOF</text></g><path d="M10,95.4297 L74.4429,95.4297 L74.4429,102.5625 L64.4429,112.5625 L10,112.5625 L10,95.4297" fill="#EEEEEE" style="stroke:#000000;stroke-width:1.5;"/><rect fill="none" height="1063.2031" style="stroke:#000000;stroke-width:1.5;" width="760.6035" x="10" y="95.4297"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="19.4429" x="25" y="108.4966">alt</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="134.4324" x="89.4429" y="107.6401">[&#23376;&#36827;&#31243;&#27491;&#22312;&#25191;&#34892;AOF&#37325;&#20889;]</text><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="133.6953" y2="133.6953"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="133.6953" y2="146.6953"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="146.6953" y2="146.6953"/><polygon fill="#181818" points="129.9998,142.6953,119.9998,146.6953,129.9998,150.6953" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="78.0001" x="125.9998" y="128.6294">&#36820;&#22238;&#38169;&#35823;&#20449;&#24687;</text></g><line style="stroke:#000000;stroke-width:1;stroke-dasharray:2.0,2.0;" x1="10" x2="770.6035" y1="155.6953" y2="155.6953"/><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="123.4325" x="15" y="165.9058">[&#19981;&#23384;&#22312;AOF&#37325;&#20889;&#23376;&#36827;&#31243;]</text><path d="M20,176.5 L84.4429,176.5 L84.4429,183.6328 L74.4429,193.6328 L20,193.6328 L20,176.5" fill="#EEEEEE" style="stroke:#000000;stroke-width:1.5;"/><rect fill="none" height="975.1328" style="stroke:#000000;stroke-width:1.5;" width="740.6035" x="20" y="176.5"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="19.4429" x="35" y="189.5669">alt</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="146.4531" x="99.4429" y="188.7104">[&#23384;&#22312;RDB/AOF/&#27169;&#22359;&#23376;&#36827;&#31243;]</text><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="214.7656" y2="214.7656"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="214.7656" y2="227.7656"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="227.7656" y2="227.7656"/><polygon fill="#181818" points="129.9998,223.7656,119.9998,227.7656,129.9998,231.7656" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="260.7175" x="125.9998" y="209.6997">&#25171;&#19978;&#26631;&#35782;&#65292;&#20043;&#21518;&#20107;&#20214;&#20013;&#35302;&#21457;BGREWRITEAOF</text></g><line style="stroke:#000000;stroke-width:1;stroke-dasharray:2.0,2.0;" x1="20" x2="760.6035" y1="236.7656" y2="236.7656"/><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="76.0542" x="25" y="246.9761">[&#26080;&#20854;&#20182;&#23376;&#36827;&#31243;]</text><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="271.7031" y2="271.7031"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="271.7031" y2="284.7031"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="284.7031" y2="284.7031"/><polygon fill="#181818" points="129.9998,280.7031,119.9998,284.7031,129.9998,288.7031" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="104.6031" x="125.9998" y="266.6372">&#35302;&#21457;AOF&#21518;&#21488;&#37325;&#20889;</text></g><path d="M30,299.7031 L94.4429,299.7031 L94.4429,306.8359 L84.4429,316.8359 L30,316.8359 L30,299.7031" fill="#EEEEEE" style="stroke:#000000;stroke-width:1.5;"/><rect fill="none" height="844.9297" style="stroke:#000000;stroke-width:1.5;" width="720.6035" x="30" y="299.7031"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="19.4429" x="45" y="312.77">alt</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="87.0542" x="109.4429" y="311.9136">[&#23384;&#22312;&#23376;&#36827;&#31243;&#20914;&#31361;]</text><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="337.9688" y2="337.9688"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="337.9688" y2="350.9688"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="350.9688" y2="350.9688"/><polygon fill="#181818" points="129.9998,346.9688,119.9998,350.9688,129.9998,354.9688" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="78.0001" x="125.9998" y="332.9028">&#36820;&#22238;&#38169;&#35823;&#20449;&#24687;</text></g><line style="stroke:#000000;stroke-width:1;stroke-dasharray:2.0,2.0;" x1="30" x2="750.6035" y1="359.9688" y2="359.9688"/><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="43.0545" x="35" y="370.1792">[&#26080;&#20914;&#31361;]</text><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="394.9063" y2="394.9063"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="394.9063" y2="407.9063"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="407.9063" y2="407.9063"/><polygon fill="#181818" points="129.9998,403.9063,119.9998,407.9063,129.9998,411.9063" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="64.4034" x="125.9998" y="389.8403">fork&#23376;&#36827;&#31243;</text></g><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="437.0391" y2="437.0391"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="437.0391" y2="450.0391"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="450.0391" y2="450.0391"/><polygon fill="#181818" points="129.9998,446.0391,119.9998,450.0391,129.9998,454.0391" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="117.8444" x="125.9998" y="431.9731">&#35760;&#24405;&#23376;&#36827;&#31243;ID&#31561;&#20449;&#24687;</text></g><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="509.4375" y2="509.4375"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="509.4375" y2="522.4375"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="522.4375" y2="522.4375"/><polygon fill="#181818" points="129.9998,518.4375,119.9998,522.4375,129.9998,526.4375" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="91.0001" x="145.8013" y="474.106">&#22788;&#29702;&#23458;&#25143;&#31471;&#35831;&#27714;</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="130.6031" x="125.9998" y="489.2388">&#21629;&#20196;&#36861;&#21152;AOF&#32531;&#20914;&#21306;&#12289;</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="91.6031" x="145.4998" y="504.3716">AOF&#37325;&#20889;&#32531;&#20914;&#21306;</text></g><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="551.5703" y2="551.5703"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="551.5703" y2="564.5703"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="564.5703" y2="564.5703"/><polygon fill="#181818" points="129.9998,560.5703,119.9998,564.5703,129.9998,568.5703" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="312.0003" x="125.9998" y="546.5044">&#21019;&#24314;&#25991;&#20214;&#20107;&#20214;&#65292;&#29992;&#20110;&#29238;&#23376;&#36827;&#31243;&#31649;&#36947;&#20256;&#36755;&#37325;&#20889;&#32531;&#20914;&#21306;&#25968;&#25454;</text></g><g class="message" data-participant-1="Main" data-participant-2="Child"><polygon fill="#181818" points="433.0001,589.7031,443.0001,593.7031,433.0001,597.7031" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="439.0001" y1="593.7031" y2="593.7031"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="64.4034" x="249.7983" y="588.6372">fork&#23376;&#36827;&#31243;</text></g><g class="message" data-participant-1="Child" data-participant-2="Child"><line style="stroke:#181818;stroke-width:1;" x1="445.0001" x2="487.0001" y1="622.8359" y2="622.8359"/><line style="stroke:#181818;stroke-width:1;" x1="487.0001" x2="487.0001" y1="622.8359" y2="635.8359"/><line style="stroke:#181818;stroke-width:1;" x1="446.0001" x2="487.0001" y1="635.8359" y2="635.8359"/><polygon fill="#181818" points="456.0001,631.8359,446.0001,635.8359,456.0001,639.8359" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="104.6031" x="452.0001" y="617.77">&#36827;&#34892;AOF&#37325;&#20889;&#24037;&#20316;</text></g><g class="message" data-participant-1="Child" data-participant-2="Child"><line style="stroke:#181818;stroke-width:1;" x1="445.0001" x2="487.0001" y1="680.1016" y2="680.1016"/><line style="stroke:#181818;stroke-width:1;" x1="487.0001" x2="487.0001" y1="680.1016" y2="693.1016"/><line style="stroke:#181818;stroke-width:1;" x1="446.0001" x2="487.0001" y1="693.1016" y2="693.1016"/><polygon fill="#181818" points="456.0001,689.1016,446.0001,693.1016,456.0001,697.1016" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="78.0001" x="507.8087" y="659.9028">&#21019;&#24314;&#20020;&#26102;&#25991;&#20214;</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="189.6172" x="452.0001" y="675.0356">(temp-rewriteaof-${pid}.aof)</text></g><path d="M377.0002,708.1016 L441.4431,708.1016 L441.4431,715.2344 L431.4431,725.2344 L377.0002,725.2344 L377.0002,708.1016" fill="#EEEEEE" style="stroke:#000000;stroke-width:1.5;"/><rect fill="none" height="131.3359" style="stroke:#000000;stroke-width:1.5;" width="295.0002" x="377.0002" y="708.1016"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="19.4429" x="392.0002" y="721.1685">alt</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="87.0542" x="456.4431" y="720.312">[&#21551;&#29992;&#28151;&#21512;&#25345;&#20037;&#21270;]</text><g class="message" data-participant-1="Child" data-participant-2="Child"><line style="stroke:#181818;stroke-width:1;" x1="445.0001" x2="487.0001" y1="761.5" y2="761.5"/><line style="stroke:#181818;stroke-width:1;" x1="487.0001" x2="487.0001" y1="761.5" y2="774.5"/><line style="stroke:#181818;stroke-width:1;" x1="446.0001" x2="487.0001" y1="774.5" y2="774.5"/><polygon fill="#181818" points="456.0001,770.5,446.0001,774.5,456.0001,778.5" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="99.8487" x="467.6979" y="741.3013">&#25191;&#34892;rdb&#21518;&#21488;&#37325;&#20889;</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="131.2442" x="452.0001" y="756.4341">&#36890;&#36807;BGSAVE&#26041;&#24335;&#20445;&#23384;</text></g><line style="stroke:#000000;stroke-width:1;stroke-dasharray:2.0,2.0;" x1="377.0002" x2="672.0004" y1="783.5" y2="783.5"/><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="79.4328" x="382.0002" y="793.7104">[&#26222;&#36890;AOF&#37325;&#20889;]</text><g class="message" data-participant-1="Child" data-participant-2="Child"><line style="stroke:#181818;stroke-width:1;" x1="445.0001" x2="487.0001" y1="818.4375" y2="818.4375"/><line style="stroke:#181818;stroke-width:1;" x1="487.0001" x2="487.0001" y1="818.4375" y2="831.4375"/><line style="stroke:#181818;stroke-width:1;" x1="446.0001" x2="487.0001" y1="831.4375" y2="831.4375"/><polygon fill="#181818" points="456.0001,827.4375,446.0001,831.4375,456.0001,835.4375" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="208.0002" x="452.0001" y="813.3716">&#36941;&#21382;&#25968;&#25454;&#24211;&#20889;&#20837;&#25152;&#26377;&#38190;&#20540;&#21450;&#36807;&#26399;&#26102;&#38388;</text></g><g class="message" data-participant-1="Child" data-participant-2="Child"><line style="stroke:#181818;stroke-width:1;" x1="445.0001" x2="487.0001" y1="882.7031" y2="882.7031"/><line style="stroke:#181818;stroke-width:1;" x1="487.0001" x2="487.0001" y1="882.7031" y2="895.7031"/><line style="stroke:#181818;stroke-width:1;" x1="446.0001" x2="487.0001" y1="895.7031" y2="895.7031"/><polygon fill="#181818" points="456.0001,891.7031,446.0001,895.7031,456.0001,899.7031" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="130.0002" x="465.3016" y="862.5044">&#36890;&#36807;&#29238;&#23376;&#36827;&#31243;&#31649;&#36947;&#25509;&#25910;</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="156.6032" x="452.0001" y="877.6372">&#36951;&#28431;&#30340;AOF&#37325;&#20889;&#32531;&#20914;&#21306;&#25968;&#25454;</text></g><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="939.9688" y2="939.9688"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="939.9688" y2="952.9688"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="952.9688" y2="952.9688"/><polygon fill="#181818" points="129.9998,948.9688,119.9998,952.9688,129.9998,956.9688" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="117.0001" x="125.9998" y="919.77">&#29238;&#36827;&#31243;&#20572;&#27490;&#31649;&#36947;&#20256;&#36755;</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="104.0001" x="132.4998" y="934.9028">&#21457;&#36865;&#32467;&#26463;&#26631;&#24535;&#25968;&#25454;</text></g><g class="message" data-participant-1="Child" data-participant-2="Child"><line style="stroke:#181818;stroke-width:1;" x1="445.0001" x2="487.0001" y1="982.1016" y2="982.1016"/><line style="stroke:#181818;stroke-width:1;" x1="487.0001" x2="487.0001" y1="982.1016" y2="995.1016"/><line style="stroke:#181818;stroke-width:1;" x1="446.0001" x2="487.0001" y1="995.1016" y2="995.1016"/><polygon fill="#181818" points="456.0001,991.1016,446.0001,995.1016,456.0001,999.1016" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="286.6033" x="452.0001" y="977.0356">&#23558;&#25968;&#25454;&#20889;&#20837;&#20020;&#26102;&#25991;&#20214;&#65292;&#20889;&#23436;&#37325;&#21629;&#21517;&#20026;&#27491;&#24335;AOF&#25991;&#20214;</text></g><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="1039.3672" y2="1039.3672"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="1039.3672" y2="1052.3672"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="1052.3672" y2="1052.3672"/><polygon fill="#181818" points="129.9998,1048.3672,119.9998,1052.3672,129.9998,1056.3672" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="130.6031" x="125.9998" y="1019.1685">&#23558;AOF&#37325;&#20889;&#32531;&#20914;&#21306;&#25968;&#25454;</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="104.6031" x="138.9998" y="1034.3013">&#36861;&#21152;&#21040;&#26032;AOF&#25991;&#20214;</text></g><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="1081.5" y2="1081.5"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="1081.5" y2="1094.5"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="1094.5" y2="1094.5"/><polygon fill="#181818" points="129.9998,1090.5,119.9998,1094.5,129.9998,1098.5" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="182.6032" x="125.9998" y="1076.4341">&#21407;&#23376;&#26367;&#25442;&#26087;AOF&#25991;&#20214;&#65292;&#26356;&#26032;&#20449;&#24687;</text></g><g class="message" data-participant-1="Main" data-participant-2="Main"><line style="stroke:#181818;stroke-width:1;" x1="118.9998" x2="160.9998" y1="1123.6328" y2="1123.6328"/><line style="stroke:#181818;stroke-width:1;" x1="160.9998" x2="160.9998" y1="1123.6328" y2="1136.6328"/><line style="stroke:#181818;stroke-width:1;" x1="119.9998" x2="160.9998" y1="1136.6328" y2="1136.6328"/><polygon fill="#181818" points="129.9998,1132.6328,119.9998,1136.6328,129.9998,1140.6328" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="169.0002" x="125.9998" y="1118.5669">&#28165;&#31354;&#32531;&#20914;&#21306;&#12289;&#21024;&#38500;&#20020;&#26102;&#25991;&#20214;&#31561;</text></g><!--SRC=[ZLHTRz9G6BxlhsWMB_HYJcEyyS9akBdimhZCHM-ugQERpQ0ZfOipneIQyRNn6HZ8O0xcvb33XsO11aL-ZEUSjbVx2xxGqRK3mIOjv9pdVTxdVT_d7Cy6nxiPWN7H7l6TauMlmAsAMoudvJ5sbXX1v5OvDyEBIup3mV7hz8DxfdtRvlPW_Vv3q_eSkyPiESKLTbkSTNBhl8lbHNeLFgn0KUvhKdeADTkNSb09rY_baDhDAQMzAPhnqCyOZhS2SJbksd_oXdCwAAe7ewSVz-7q8zgsi3p_QdbnPNxs-LEAOfmYRKIHyXUSBv7GcLeCmwuMY61_bgBXkS6XTbCuzrbBPTLg5NMBHAfIhDF3qgWPmULFm6546znz6ZrR3x0yPvi1q0mf5V5XneeQaP24agYvIme1jUg_bCFeOW_7ewYrXzfrr2ohPrznB64fhCVHbqGo1UohetPwOWwT1OA16iTgfkgjqWqYxF-bV9SCnF_rQO0qn4qaMTiKDeR5ZyfMgU7ElW5Td5FAeHjPHqJXanqbxiULOn9iA3-gQhL1VdwqypZHGUqJjTl1kmNeYI8dGIaEj_vu9JjlZDTO7fiXcCFj5aa7UjFgpmn6gAHAg1K5JnjwbKfHav98BgY_apVOoNwDH2hKo2Hzbm-roGBL8IOiWCmMnurJrCcF3z6BGCrpagdhfTZvsoBhSayBx5k14rbcSstwrditv_Xm5_xUiIhekoTUXQ99eu7ZGHAMq8KFXzCMrCZ4-d4K7A_DjhJpclT0xGPi2ozcNywJz0MMOwXx20Qr4EecorO0R3tFOpDgKWH7_NhFSIlPQv3lb8Iy91_IKXNibN5i5tAJ_17qGikSMrFoZWdDrvKFJvv4JqaAkgf96IB7b8ETOPUDyy6LsO3twdHAUL8-DfiAJ1rBQ5v9QIV9uH5S9hYR6SKuFFlQe1lzLfXD04xkBLR2FQM93ev7KBFLkqVb6CZNCMFr0lU_whJp-l73mHf9rwxfnh55Zw2h9DSbaMEIEJDYG2R9dGFBvFk0D7tAjvRvlEDWGSkUcAk6YuKo3tpm2-zV]--></g></svg>
+<p>更新过程细节</p>
+<ul>
+<li>创建子进程 fork 构建一个新的aof</li>
+<li>子进程读取当前redis的数据，写入到新的aof 文件中</li>
+<li>读取redis数据期间，主进程其他新增的写入操作，会被写入aof_buffer, aof_rewrite_buffer 缓存中；</li>
+<li>重写完成后，将aof_rewrite_buffer 缓存追加写入到新的aof中</li>
+<li>用新的aof覆盖现有的 aof 文件；</li>
+<li>问题：<ul>
+<li>高并发情况下，AOF重写缓冲区积累可能会很大，这样就会造成阻塞</li>
+<li>Redis后来通过Linux管道技术让aof重写期间就能同时进行回放，这样aof重写结束后只需回放少量剩余的数据即可。</li>
+</ul>
+</li>
+</ul>
+<h3 id="重写日志的过程中可能阻塞的情况"><a href="#重写日志的过程中可能阻塞的情况" class="headerlink" title="重写日志的过程中可能阻塞的情况"></a>重写日志的过程中可能阻塞的情况</h3><ul>
+<li>fork 子进程，拷贝页表，可能阻塞</li>
+<li>主进程写入大 key 时，由于写时拷贝（COW），会导致主线程阻塞</li>
+<li>子进程重写日志完成后，主进程追加写入rewrite-aof-buffer时，可能对于主线程存在阻塞；</li>
+</ul>
+<h2 id="混合持久化"><a href="#混合持久化" class="headerlink" title="混合持久化"></a>混合持久化</h2><ul>
+<li>混合持久化发生于aof重写的过程中，使用混合持久化，重写后新的aof文件前半段为 rdb格式的全量数据，后半段是aof格式的增量数据；<ul>
+<li>整体格式 [rdb file] [aof tail]</li>
+</ul>
+</li>
+<li>混合持久化本质是通过 aof 后台重写完成的，不同的是当开启混合持久化时，fork出的子进程先将当前的全量数据以rdb的方式写入新的aof文件；然后再将 AOF 重写缓冲区（aof_rewrite_buf_blocks）的增量命令以 AOF 方式写入到文件，写入完成后通知主进程将新的含有 RDB 格式和 AOF 格式的 AOF 文件替换旧的的 AOF 文件。</li>
+<li>优点<ul>
+<li>结合了rdb和aof 的优点，更快的恢复和重写</li>
+</ul>
+</li>
+<li>缺点<ul>
+<li>aof文件里面的rdb不再是aof格式，可读性差</li>
+</ul>
+</li>
+</ul>
+<h3 id="适用场景-2"><a href="#适用场景-2" class="headerlink" title="适用场景"></a>适用场景</h3><ul>
+<li>适用于既要求高恢复速度又要求较高数据安全性的混合型业务场景。</li>
+<li>适合大数据量、对冷启动恢复时间敏感、同时又希望减少AOF重写期间阻塞的业务。</li>
+<li>适合对持久化文件体积和恢复效率有双重要求的企业级应用。</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/redis/" class="category-chain-item">redis</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/redis/" class="print-no-link">#redis</a>
+      
+        <a href="/tags/persistence/" class="print-no-link">#persistence</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Redis 持久化机制</div>
+      <div>https://serendipityconfusion.github.io/2025/04/24/redis/persistence/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>serendipityConfusion</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年4月24日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2025/04/29/redis/cluster/" title="高可用">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">高可用</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/04/21/redis/struct/" title="数据结构">
+                        <span class="hidden-mobile">数据结构</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#comments', function() {
+      var light = 'github-light';
+      var dark = 'github-dark';
+      var schema = document.documentElement.getAttribute('data-user-color-scheme');
+      if (schema === 'dark') {
+        schema = dark;
+      } else {
+        schema = light;
+      }
+      window.UtterancesThemeLight = light;
+      window.UtterancesThemeDark = dark;
+      var s = document.createElement('script');
+      s.setAttribute('src', 'https://utteranc.es/client.js');
+      s.setAttribute('repo', 'serendipityConfusion/serendipityConfusion.github.io');
+      s.setAttribute('issue-term', 'pathname');
+      
+      s.setAttribute('label', 'utterances');
+      
+      s.setAttribute('theme', schema);
+      s.setAttribute('crossorigin', 'anonymous');
+      document.getElementById('comments').appendChild(s);
+    })
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script  src="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js" ></script>
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

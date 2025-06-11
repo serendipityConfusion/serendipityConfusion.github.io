@@ -1,0 +1,838 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/global/icon.png">
+  <link rel="icon" href="/global/icon.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="serendipityConfusion">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="Linux内存管理内存管理的核心目标  有效的管理系统的内存资源，以提高系统性能、确保程序的正确执行 最大限度的利用可用的内存空间  PTmallocglibc（GUN C）默认的内存管理器；内存分配单位为chunk graph TD     A((&quot;thread&quot;)) --&gt; |&quot;malloc()&quot;|B[&quot;加锁分配区&quot;]     B --&gt; C&#123;&quot;chunk_size &lt;&#x3D; 64">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Golang内存管理">
+<meta property="og:url" content="https://serendipityconfusion.github.io/2024/03/01/golang/memory/index.html">
+<meta property="og:site_name" content="serendipityConfusion">
+<meta property="og:description" content="Linux内存管理内存管理的核心目标  有效的管理系统的内存资源，以提高系统性能、确保程序的正确执行 最大限度的利用可用的内存空间  PTmallocglibc（GUN C）默认的内存管理器；内存分配单位为chunk graph TD     A((&quot;thread&quot;)) --&gt; |&quot;malloc()&quot;|B[&quot;加锁分配区&quot;]     B --&gt; C&#123;&quot;chunk_size &lt;&#x3D; 64">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://serendipityconfusion.github.io/image/memory/tcmalloc.png">
+<meta property="og:image" content="https://serendipityconfusion.github.io/image/memory/golang_malloc.png">
+<meta property="og:image" content="https://serendipityconfusion.github.io/image/memory/span.jpg">
+<meta property="article:published_time" content="2024-03-01T09:00:00.000Z">
+<meta property="article:modified_time" content="2025-06-11T16:53:01.000Z">
+<meta property="article:author" content="serendipityConfusion">
+<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="golang">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://serendipityconfusion.github.io/image/memory/tcmalloc.png">
+  
+  
+  
+  <title>Golang内存管理 - serendipityConfusion</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"serendipityconfusion.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"auto"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null},"woyaola":null,"cnzz":null},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>serendipityConfusion</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Golang内存管理"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-03-01 17:00" pubdate>
+          2024年3月1日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.5k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          21 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">Golang内存管理</h1>
+            
+              <p id="updated-time" class="note note-info" style="">
+                
+                  
+                    本文最后更新于 2025年6月12日 凌晨
+                  
+                
+              </p>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="Linux内存管理"><a href="#Linux内存管理" class="headerlink" title="Linux内存管理"></a>Linux内存管理</h1><p>内存管理的核心目标</p>
+<ul>
+<li>有效的管理系统的内存资源，以提高系统性能、确保程序的正确执行</li>
+<li>最大限度的利用可用的内存空间</li>
+</ul>
+<h2 id="PTmalloc"><a href="#PTmalloc" class="headerlink" title="PTmalloc"></a>PTmalloc</h2><p>glibc（GUN C）默认的内存管理器；内存分配单位为chunk</p>
+<pre><code class="mermaid">graph TD
+    A(("thread")) --> |"malloc()"|B["加锁分配区"]
+    B --> C&#123;"chunk_size &lt;= 64B"&#125;
+    C --> |"yes"|D["在fast bins中分配"]
+    C --> |"no"|E&#123;"chunk_size &lt; 512B"&#125;
+    D --> |"失败"|F["small bin中分配"]
+    E --> |"yes"|F
+    F --> |"失败"|G["合并fase bin中相邻chunk到unsorted bin中,从中分配"]
+    G --> |"失败"|H["从large bins中分配"]
+    E --> |"no"|H
+    H --> |"失败"|I["从top chunk中分配"]
+    I --> |"失败"|J&#123;"主分配区？"&#125;
+    J --> |"否"|L["mmap()增加top chunk或者直接分配"]
+    J --> |"是"|M["sbrk()增加top chunk或大内存直接mmap()"]</code></pre>
+
+<h3 id="优点："><a href="#优点：" class="headerlink" title="优点："></a>优点：</h3><ul>
+<li>良好的兼容性，可移植性，稳定性，兼具效率。</li>
+</ul>
+<h3 id="缺点："><a href="#缺点：" class="headerlink" title="缺点："></a>缺点：</h3><ul>
+<li>后分配的内存先释放,因为 ptmalloc 收缩内存是从 top chunk 开始,如果与 top chunk 相邻的 chunk 不能释放, top chunk 以下的 chunk 都无法释放；</li>
+<li>对多线程的支持不好，多线程切换锁的开销较大；</li>
+<li>内存碎片问题，不定期分配长生命周期的内存容易造成内存碎片，不利于回收。</li>
+<li>每个线程都有独立的内存管理空间(arena)，每个arena管理着其线程独有的内存分配与释放。这种设计方式是为了避免不同线程之间的竞争条件，提高并发性能和减少锁的开销。同时也导致了不同线程之间无法共享内存，不能从一个arena移动到另一个arena。如果多线程使用内存不均衡，容易导致内存的浪费；</li>
+</ul>
+<h2 id="TCmalloc-Thread-Caching-malloc"><a href="#TCmalloc-Thread-Caching-malloc" class="headerlink" title="TCmalloc : Thread-Caching malloc"></a>TCmalloc : Thread-Caching malloc</h2><p>tcmalloc是Google开源的一个内存管理库， 作为glibc malloc的替代品。为了多线程并发的内存管理设计的 ，TCmalloc主要是在线程级实现了缓存（Thread Cache），使得用户申请内存时，大多情况是无锁分配。提高了运行的效率</p>
+<p>TCmalloc的三级缓存</p>
+<ol>
+<li><strong>Thread Cache（线程缓存）</strong> ：每个线程都有自己的本地缓存，用于快速分配和释放内存。当线程请求内存分配时，tcmalloc会首先检查线程本地缓存中是否有可用的内存块。这种线程本地缓存机制能够避免多线程竞争，提高内存操作的性能。</li>
+<li><strong>Central Cache（中央缓存）</strong> ：所有线程共享的中央缓存用于存储较大的内存块，它会在多个线程之间共享和重用内存资源。当线程本地缓存不足或未命中时，tcmalloc会尝试从中央缓存中获取可用的内存块，以满足分配请求。</li>
+<li><strong>Page Heap（页堆）</strong> ：页堆是用于存储较大的内存块和未被使用的内存页的地方。当中央缓存无法满足分配请求时，tcmalloc会从页堆中获取更大的内存块，并将其分割为适当大小的块以供分配。</li>
+</ol>
+<p><img src="/image/memory/tcmalloc.png" srcset="/img/loading.gif" lazyload></p>
+<p>分配流程：</p>
+<ul>
+<li>小对象 &lt;&#x3D;32k：threadCache-&gt;centralCache-&gt;pageHeap-&gt;os</li>
+<li>大对象 &gt;32k: pageHeap-&gt;os</li>
+</ul>
+<h3 id="优点：-1"><a href="#优点：-1" class="headerlink" title="优点："></a>优点：</h3><ul>
+<li>小内存不加锁分配，提高线程的性能，大内存申请使用自旋锁，更加高效；</li>
+<li>通过缓存和分级管理机制，以及避免不必要的锁竞争来提高系统的可伸缩性</li>
+<li>减少了内存碎片，能够通过内存区块的精细管理和智能分配策略来减少内存碎片的产生，提高内存的利用率，ThreadCache阶段性回收内存到CentralCache中；</li>
+</ul>
+<h3 id="缺点：-1"><a href="#缺点：-1" class="headerlink" title="缺点："></a>缺点：</h3><ul>
+<li>在多线程大内存分配的场景下，自旋锁可能导致系统的CPU暴涨；</li>
+<li>线程本地缓存的内存开销；</li>
+</ul>
+<h2 id="Jemalloc"><a href="#Jemalloc" class="headerlink" title="Jemalloc"></a>Jemalloc</h2><p>jemalloc是facebook开源的内存管理器。具有强大的多核&#x2F;多线程的内存分配能力，对比设计，比ptmalloc，tcmalloc更加复杂。随着硬件发展，锁竞争成为了多核&#x2F;多线程内存分配的最大瓶颈；</p>
+<p>核心概念：</p>
+<ul>
+<li>size_class：代表 jemalloc 分配的内存大小，共有 NSIZES（232）个小类<ul>
+<li>小内存：对于64位机器来说，通常区间是 [8, 14kb]，常见的有 8, 16, 32, 48, 64, …, 2kb, 4kb, 8kb，注意为了减少内存碎片并不都是2的次幂；</li>
+<li>大内存：对于64位机器来说，通常区间是 [16kb, 7EiB]，从 4 * page_size 开始，常见的比如 16kb, 32kb, …, 1mb, 2mb, 4mb</li>
+<li>size_index：size 位于 <code>size_class</code> 中的索引号，区间为 [0，231]，比如8字节则为0，14字节（按16计算）为1，4kb字节为28，当 size 是 <code>small_class</code> 时，<code>size_index</code> 也称作 <code>binind</code></li>
+</ul>
+</li>
+<li>bin：管理正在使用中的 <code>slab</code>（即用于小内存分配的 <code>extent</code>） 的集合，每个 <code>bin</code> 对应一个 <code>size_class</code></li>
+<li>extent：管理 jemalloc 内存块（即用于用户分配的内存）的结构，每一个内存块大小可以是 <code>N * page_size(4kb)</code>（N &gt;&#x3D; 1）。每个 extent 有一个序列号（serial number）。一个 <code>extent</code> 可以用来分配一次 <code>large_class</code> 的内存申请，但可以用来分配多次 <code>small_class</code> 的内存申请。</li>
+<li>slab：当 extent 用于分配 <code>small_class</code> 内存时，称其为 <code>slab</code>。一个 <code>extent</code> 可以被用来处理多个同一 <code>size_class</code> 的内存申请</li>
+<li>area：用于分配&amp;回收 <code>extent</code> 的结构，每个用户线程会被绑定到一个 <code>arena</code> 上，默认每个逻辑 CPU 会有 4 个 <code>arena</code> 来减少锁的竞争，各个 arena 所管理的内存相互独立。<ul>
+<li><code>arena.extents_dirty</code> : 刚被释放后空闲 <code>extent</code> 位于的地方</li>
+<li><code>arena.extents_muzzy</code> : <code>extents_dirty</code> 进行 lazy purge 后位于的地方，<code>dirty -&gt; muzzy</code></li>
+<li><code>arena.extents_retained</code> : <code>extents_muzzy</code> 进行 decommit 或 force purge 后 <code>extent</code> 位于的地方，<code>muzzy -&gt; retained</code></li>
+</ul>
+</li>
+<li>cache_bin：每个线程独有的用于分配小内存的缓存</li>
+<li>tsd：Thread Special Data：每个线程独有，存放有关于这个线程相关的结构结构</li>
+</ul>
+<p>分配流程：</p>
+<ul>
+<li>小内存 &lt;&#x3D;32k：cache_bin -&gt; slab -&gt; slabs_nonfull -&gt; extents_dirty -&gt; extents_muzzy -&gt; extents_retained -&gt; os</li>
+<li>大内存 &gt;32k：extents_dirty -&gt; extents_muzzy -&gt; extents_retained -&gt; os</li>
+</ul>
+<h3 id="优点：-2"><a href="#优点：-2" class="headerlink" title="优点："></a>优点：</h3><ul>
+<li>多线程下的性能以及内存碎片的减少</li>
+<li>对于保证多线程性能有不同 <code>arena</code>、降低锁的粒度、使用原子语义</li>
+</ul>
+<h3 id="缺点：-2"><a href="#缺点：-2" class="headerlink" title="缺点："></a>缺点：</h3><ul>
+<li>arena之间内存不可见，导致两个arena的内存出现大量交叉从而无法合并</li>
+<li>额外的内存开销</li>
+</ul>
+<h1 id="golang内存管理"><a href="#golang内存管理" class="headerlink" title="golang内存管理"></a>golang内存管理</h1><p>golang的内存管理就是基于TCMalloc的核心思想来构建的;</p>
+<p><img src="/image/memory/golang_malloc.png" srcset="/img/loading.gif" lazyload></p>
+<p>span：span是由1个或多个连续Page组成，每个Span对象都有一个起始Page地址以及包含的Page数量。同时Span还有prev和next两个指针，方便组成双向链表。这里的spanClass就是我们上面所说的分级，每个span都只会服务于一种SpanClass。</p>
+<p>sizeClass:</p>
+<ul>
+<li>ObjectSize：是指协程应用逻辑一次向Golang内存申请的对象Object大小。Object是Golang内存管理模块针对内存管理更加细化的内存管理单元。一个Span在初始化时会被分成多个Object。</li>
+<li>SizeClass：一块内存的所属规格或者刻度。Golang内存管理中的Size Class是针对Object Size来划分内存的，划分Object的大小级别；</li>
+<li>SpanClass：针对Span大小级别进行划分的，一个SizeClass会对应两个SpanClass，一个存放需要进行GC扫描的对象（指针对象），另一个不需要进行GC扫描的对象</li>
+</ul>
+<p><img src="/image/memory/span.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>mcache：线程局部缓存，不需要加锁，作为一个缓存，由0~133多个span-class组成的，里面存放了大量已分配或未分配的Span。当用户程序申请小对象内存时，mcache会查找自己管理的内存块，如果有符合条件的就直接返回，否则向中端请求一批内存来重新填充。 每个mcache绑定一个P，而不是M（局部性原理，避免线程切换带来的开销）</p>
+<p>mcentral：和mcache的组成一样，0~133多个span-class组成的，但每个级别都保存了2个span Set，即2个span集合 1. Partial Span Set ：这个集合里的span，所有span都至少有1个空闲的对象空间。这些span是mcache释放span时加入到该链表的。2. Full Span Set：这个集合里的span，所有的span都不确定里面是否有空闲的对象空间。当一个span交给mcache的时候，就会加入到Full集合中。</p>
+<p>mheap：保存了两棵二叉排序树，按span的page数量进行排序，垃圾回收导致的span释放，span会被加入到scav，否则加入到free：</p>
+<ul>
+<li>free：free中保存的span是空闲并且非垃圾回收的span。</li>
+<li>scav：scav中保存的是空闲并且已经垃圾回收的span。</li>
+</ul>
+<p>mheap中还有arenas，由一组heapArena组成，每一个heapArena都包含了连续的pagesPerArena个span，这个主要是为mheap管理span和垃圾回收服务。mheap本身是一个全局变量，它里面的数据，也都是从OS直接申请来的内存，并不在mheap所管理的那部分内存以内。</p>
+<h2 id="内存分配的过程："><a href="#内存分配的过程：" class="headerlink" title="内存分配的过程："></a>内存分配的过程：</h2><p>针对分配对象的不同大小有不同的分配对象</p>
+<ul>
+<li>（0，16B）且不包含指针的对象：tiny 分配</li>
+<li>（0，16B）包含指针的对象：正常分配</li>
+<li>[16B，32KB]：正常分配</li>
+<li>（32KB，-）：大对象分配</li>
+</ul>
+<p>小对象是在mcache中分配的，而大对象是直接从mheap分配的；</p>
+<p>申请size为n的内存为例子，分配步骤如下：</p>
+<ol>
+<li>获取当前goroutine的私有缓存mcache</li>
+<li>根据size 计算合适class的ID，mcache中有合适大小的span，就分配结束。</li>
+<li>从mcache的alloc[class]链表中查询可用的span</li>
+<li>如果mcache中没有可用的span，则从mcentral申请一个新的span加入mcache中</li>
+<li>如果mcache中也没有可用的span，则从mheap中申请一个新的span加入mcentral</li>
+<li>从该span中获取空闲对象地址并返回。</li>
+</ol>
+<h2 id="内存释放的过程"><a href="#内存释放的过程" class="headerlink" title="内存释放的过程"></a>内存释放的过程</h2><p>Go使用垃圾回收收集不再使用的span，调用mspan.scavenge()把span释放还给OS（并非真释放，只是告诉OS这片内存的信息无用了，如果你需要的话，收回去好了），然后交给mheap，mheap对span进行span的合并，把合并后的span加入scav树中，等待再分配内存时，由mheap进行内存再分配；</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/golang/" class="category-chain-item">golang</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" class="print-no-link">#内存管理</a>
+      
+        <a href="/tags/golang/" class="print-no-link">#golang</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Golang内存管理</div>
+      <div>https://serendipityconfusion.github.io/2024/03/01/golang/memory/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>serendipityConfusion</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年3月1日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/03/01/golang/map/" title="Golang map的底层结构和渐进式hash">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">Golang map的底层结构和渐进式hash</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/03/01/golang/sysmon/" title="sysmon线程">
+                        <span class="hidden-mobile">sysmon线程</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#comments', function() {
+      var light = 'github-light';
+      var dark = 'github-dark';
+      var schema = document.documentElement.getAttribute('data-user-color-scheme');
+      if (schema === 'dark') {
+        schema = dark;
+      } else {
+        schema = light;
+      }
+      window.UtterancesThemeLight = light;
+      window.UtterancesThemeDark = dark;
+      var s = document.createElement('script');
+      s.setAttribute('src', 'https://utteranc.es/client.js');
+      s.setAttribute('repo', 'serendipityConfusion/serendipityConfusion.github.io');
+      s.setAttribute('issue-term', 'pathname');
+      
+      s.setAttribute('label', 'utterances');
+      
+      s.setAttribute('theme', schema);
+      s.setAttribute('crossorigin', 'anonymous');
+      document.getElementById('comments').appendChild(s);
+    })
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  <script>
+  Fluid.utils.createScript('https://cdn.jsdelivr.net/npm/mermaid@11.6.0/dist/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.utils.listenDOMLoaded(function() {
+      Fluid.events.registerRefreshCallback(function() {
+        if ('mermaid' in window) {
+          mermaid.init();
+        }
+      });
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script  src="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js" ></script>
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

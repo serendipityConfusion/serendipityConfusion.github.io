@@ -1,0 +1,734 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/global/icon.png">
+  <link rel="icon" href="/global/icon.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="serendipityConfusion">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="INNODB 刷脏页目的为了提高mysql的性能和吞吐量，使用内存 buffer pool，缓存磁盘页数据，减少磁盘IO；但是需要将buffer pool中的脏页刷新入磁盘中，保证数据的一致性； 定义脏页：内存数据页和磁盘数据页数据不一致时，称内存页为脏页LSN：日志的逻辑序号（log sequence number），innodb中lsn占用8个字节；LSN 的值随着日志的写入而逐渐增大；事务更">
+<meta property="og:type" content="article">
+<meta property="og:title" content="脏页刷新">
+<meta property="og:url" content="https://serendipityconfusion.github.io/2024/04/04/mysql/cacheSync/index.html">
+<meta property="og:site_name" content="serendipityConfusion">
+<meta property="og:description" content="INNODB 刷脏页目的为了提高mysql的性能和吞吐量，使用内存 buffer pool，缓存磁盘页数据，减少磁盘IO；但是需要将buffer pool中的脏页刷新入磁盘中，保证数据的一致性； 定义脏页：内存数据页和磁盘数据页数据不一致时，称内存页为脏页LSN：日志的逻辑序号（log sequence number），innodb中lsn占用8个字节；LSN 的值随着日志的写入而逐渐增大；事务更">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-04-04T08:47:42.000Z">
+<meta property="article:modified_time" content="2025-06-11T16:53:01.000Z">
+<meta property="article:author" content="serendipityConfusion">
+<meta property="article:tag" content="mysql">
+<meta property="article:tag" content="cache">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>脏页刷新 - serendipityConfusion</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"serendipityconfusion.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"auto"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null},"woyaola":null,"cnzz":null},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>serendipityConfusion</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="脏页刷新"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-04-04 16:47" pubdate>
+          2024年4月4日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.4k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          12 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">脏页刷新</h1>
+            
+              <p id="updated-time" class="note note-info" style="">
+                
+                  
+                    本文最后更新于 2025年6月12日 凌晨
+                  
+                
+              </p>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="INNODB-刷脏页"><a href="#INNODB-刷脏页" class="headerlink" title="INNODB 刷脏页"></a>INNODB 刷脏页</h1><h2 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h2><p>为了提高mysql的性能和吞吐量，使用内存 buffer pool，缓存磁盘页数据，减少磁盘IO；但是需要将buffer pool中的脏页刷新入磁盘中，保证数据的一致性；</p>
+<h2 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h2><p>脏页：内存数据页和磁盘数据页数据不一致时，称内存页为脏页<br>LSN：日志的逻辑序号（log sequence number），innodb中lsn占用8个字节；LSN 的值随着日志的写入而逐渐增大；事务更新操作会产生一个新的LSN；LSN不仅存在于redo log中，还存在于数据页中；</p>
+<h2 id="Redo-log-和内存数据"><a href="#Redo-log-和内存数据" class="headerlink" title="Redo log 和内存数据"></a>Redo log 和内存数据</h2><p><strong>内存中的数据和 redo log是一致的</strong>；redo log的作用就是为了保证数据一致性；crash-safty</p>
+<h2 id="如何判断脏页呢？"><a href="#如何判断脏页呢？" class="headerlink" title="如何判断脏页呢？"></a>如何判断脏页呢？</h2><ol>
+<li>redo log记录了 LSN（Log Sequence Number）</li>
+<li>redo log的check point 位于某个LSN，说明LSN之前的数据已经被刷入磁盘中了；</li>
+<li>内存中 干净页 如果有修改，修改后该页的LSN 大于checkpoint 的LSN，则在写 redo log 的同时该页也会被脏页记录到脏页列表中</li>
+</ol>
+<h2 id="刷脏页的时机："><a href="#刷脏页的时机：" class="headerlink" title="刷脏页的时机："></a>刷脏页的时机：</h2><ol>
+<li>redo log满了<br>停止更新操作，把checkpoint 往前推，为了能有足够的 redo log 留有空间可以继续写，移动范围内日志，将对应的脏页都 flush 到磁盘中；</li>
+<li>需要新的内存页，buffer pool不够用了淘汰<br>淘汰部分内存页，空出内存给别的使用，如果淘汰的是脏页，就先讲脏页刷新到磁盘上；</li>
+<li>认为系统空闲时，逐步刷新</li>
+<li>正常关闭，会先刷新所有的脏页</li>
+</ol>
+<h2 id="刷脏页影响"><a href="#刷脏页影响" class="headerlink" title="刷脏页影响"></a>刷脏页影响</h2><p>正常关闭和系统空闲时，没有什么影响</p>
+<p>redo log 满了，一旦发生，所有的更新操作就会停止 – redo log 大小需要合理设置</p>
+<p>内存页的三种状态： 未使用，干净页，脏页；<br>当读入数据页时，需要到buffer pool中申请一个数据页；淘汰的是最久不使用的页；当淘汰的为被标记的脏页，就需要将脏页刷新到磁盘中，再复用；– 控制脏页的比例</p>
+<h2 id="控制刷脏页"><a href="#控制刷脏页" class="headerlink" title="控制刷脏页"></a>控制刷脏页</h2><ul>
+<li><code>innodb_io_capacity</code>：写入磁盘的能力，根据这个值，确定刷脏页的速度；占用部分的能力，避免影响正常请求；</li>
+<li><code>innodb_max_dirty_pages_pct</code>：最大脏页比例，更具当前的脏页比例和redo log剩余空间，计算刷盘的百分比R，从而计算出刷脏页速度&#x3D;innodb_io_capacity*R%</li>
+</ul>
+<p>为了防止刷脏影响性能，合理设置 redo log buffer的大小，innodb_io_capacity，innodb_max_dirty_pages_pct;</p>
+<h2 id="流程"><a href="#流程" class="headerlink" title="流程"></a>流程</h2><p>当用户写入（插入，删除，更新）请求执行时，会对buffer pool中的 Page 修改，被修改的Page称为 脏页<br>脏页被统一管理在 buffer pool 中的 Flush List 链表中，同时也被挂载在 LRU list中，脏页 一定在 Flush List 和 LRU List中；<br>有一组 <strong>Page Cleaner</strong> 线程周期对Flush List 上的 脏页进行刷新，称为刷脏；<br>只有完成数据页的持久化，才能推进整个 BP 的 Flush LSN，从而推进 Checkpoint LSN，保证 Checkpoint 之前的Redo log 尽快的回收；<br>Checkpoint LSN的及时推进能够帮助数据库出现意外的crash时，在Recovery阶段减少需要回放的Redo，加快节点的重启速率，减少宕机带来的影响；</p>
+<h3 id="Page-Cleaner-线程组"><a href="#Page-Cleaner-线程组" class="headerlink" title="Page Cleaner 线程组"></a>Page Cleaner 线程组</h3><p>Page Cleaner线程是Innodb中持久化Page的一组线程，除了Redo以外的数据持久化工作全部由Page Cleaner线程完成，包括用户表，系统表，Undo，DD等所有表的Page。</p>
+<p>Page Cleaner线程使用了Innodb中经典的一个Coordinator和多个Worker的线程组设计，其中Coordinator负责对任务的切分和调度，Worker负责实际的工作内容，当然在分配完任务后Coordinator也会作为其中的一个Worker完成自己的那部分工作。</p>
+<p>在Page Cleaner Coordinator中，会判断是否要执行刷脏，以及自适应计算每次刷脏需要刷的Page数量等操作，而Worker线程只需要将自己获取到的BP instance按照所设定的n_pages进行刷盘，默认Woker线程的数量和Buffer Pool Instances数量相当。</p>
+<p>在Page Cleaner Coordinator线程<strong>默认每间隔1秒触发一次刷脏操作</strong>，刷完就会Sleep，除非有其他Checkpoint等操作触发<strong>Sync Flush</strong>，也就是同步刷脏，Sync Flush会将BP的Flush lsn推进到指定的buf_flush_sync_lsn。</p>
+<h3 id="同步刷脏"><a href="#同步刷脏" class="headerlink" title="同步刷脏"></a>同步刷脏</h3><p>除了默认的Coordinator按照固定频率刷脏外，Innodb还存在强制触发刷脏的机制，这些操作统一被称为同步刷脏，即必须要把当前Buffer Pool的flush lsn推进至某一个固定位点。</p>
+<p>同步刷脏通常会设置一个<code>buf_flush_sync_lsn</code>，当Coordinator线程在运行过程中发现buf_flush_sync_lsn不为0，则会触发同步刷脏（即全量刷脏），把所有Oldest modification lsn小于buf_flush_sync_lsn位点的Dirty Page全部进行刷脏落盘，同步刷脏时，要刷的Page数量是<strong>不受innodb_io_capacity限制</strong>，同步刷脏会抢占大量的IO资源，同时在每个Page刷脏落盘的IO过程中也会持有该Page的SX锁，这些操作会影响用户的写入请求，可能会出现性能抖动。</p>
+<h3 id="自定义刷脏"><a href="#自定义刷脏" class="headerlink" title="自定义刷脏"></a>自定义刷脏</h3><p>Page Cleaner每次刷脏的Page数量是通过一个自适应算法来实现的，代码逻辑主要集中在page_cleaner_flush_pages_recommendation()函数中，这个自适应刷脏算法是按照一个固定频率srv_flushing_avg_loops（默认30秒）来调整的，每次调整的数值主要依赖以下几个条件：</p>
+<ul>
+<li>Redo平均产生速率及其产生的平均脏页数量</li>
+<li>平均每秒的刷脏数量</li>
+<li>IO Capacity参数以及实际脏页率</li>
+</ul>
+<p>Redo平均产生速率及其产生的平均脏页数量的计算规则比较简单，即计算每个间隔之间的平均Redo lsn 产生速率，计算出一个Tagert lsn，然后依据Tagert lsn去查找在BP的Flush list上所有oldest_modification_lsn小于Tagert lsn的Page数量，以此来估算出Redo所产生的平均脏页数量；</p>
+<p><a target="_blank" rel="noopener" href="http://mysql.taobao.org/monthly/2023/04/02/">内核月报（刷脏优化）</a></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/mysql/" class="category-chain-item">mysql</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/mysql/" class="print-no-link">#mysql</a>
+      
+        <a href="/tags/cache/" class="print-no-link">#cache</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>脏页刷新</div>
+      <div>https://serendipityconfusion.github.io/2024/04/04/mysql/cacheSync/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>serendipityConfusion</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年4月4日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/04/21/algorithm/pondSample/" title="水塘抽样">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">水塘抽样</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/03/01/protobuffer/" title="protobuffer">
+                        <span class="hidden-mobile">protobuffer</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#comments', function() {
+      var light = 'github-light';
+      var dark = 'github-dark';
+      var schema = document.documentElement.getAttribute('data-user-color-scheme');
+      if (schema === 'dark') {
+        schema = dark;
+      } else {
+        schema = light;
+      }
+      window.UtterancesThemeLight = light;
+      window.UtterancesThemeDark = dark;
+      var s = document.createElement('script');
+      s.setAttribute('src', 'https://utteranc.es/client.js');
+      s.setAttribute('repo', 'serendipityConfusion/serendipityConfusion.github.io');
+      s.setAttribute('issue-term', 'pathname');
+      
+      s.setAttribute('label', 'utterances');
+      
+      s.setAttribute('theme', schema);
+      s.setAttribute('crossorigin', 'anonymous');
+      document.getElementById('comments').appendChild(s);
+    })
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script  src="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js" ></script>
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

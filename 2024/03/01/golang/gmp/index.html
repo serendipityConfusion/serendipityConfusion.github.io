@@ -1,0 +1,802 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/global/icon.png">
+  <link rel="icon" href="/global/icon.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="serendipityConfusion">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="GMP模型设计思想针对早期版本GM，并发1：1线程模型导致的问题  调度器调度G时，全局锁竞争问题 M转移G会造成 延迟和额外的系统负载 。比如当G中包含创建新协程的时候，M创建了G’，为了继续执行G，需要把G’交给M’执行，也造成了 很差的局部性 ，因为G’和G是相关的，最好放在M上执行，而不是其他M’。 系统调用(CPU在M之间的切换)导致频繁的线程阻塞和取消阻塞操作增加了系统开销。CPU切换">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GMP模型">
+<meta property="og:url" content="https://serendipityconfusion.github.io/2024/03/01/golang/gmp/index.html">
+<meta property="og:site_name" content="serendipityConfusion">
+<meta property="og:description" content="GMP模型设计思想针对早期版本GM，并发1：1线程模型导致的问题  调度器调度G时，全局锁竞争问题 M转移G会造成 延迟和额外的系统负载 。比如当G中包含创建新协程的时候，M创建了G’，为了继续执行G，需要把G’交给M’执行，也造成了 很差的局部性 ，因为G’和G是相关的，最好放在M上执行，而不是其他M’。 系统调用(CPU在M之间的切换)导致频繁的线程阻塞和取消阻塞操作增加了系统开销。CPU切换">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://serendipityconfusion.github.io/image/gmp/goroutine.png">
+<meta property="article:published_time" content="2024-03-01T09:00:00.000Z">
+<meta property="article:modified_time" content="2025-06-11T16:53:01.000Z">
+<meta property="article:author" content="serendipityConfusion">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://serendipityconfusion.github.io/image/gmp/goroutine.png">
+  
+  
+  
+  <title>GMP模型 - serendipityConfusion</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"serendipityconfusion.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"auto"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null},"woyaola":null,"cnzz":null},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>serendipityConfusion</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="GMP模型"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-03-01 17:00" pubdate>
+          2024年3月1日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.5k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          21 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">GMP模型</h1>
+            
+              <p id="updated-time" class="note note-info" style="">
+                
+                  
+                    本文最后更新于 2025年6月12日 凌晨
+                  
+                
+              </p>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="GMP模型"><a href="#GMP模型" class="headerlink" title="GMP模型"></a>GMP模型</h1><h2 id="设计思想"><a href="#设计思想" class="headerlink" title="设计思想"></a>设计思想</h2><p>针对早期版本GM，并发1：1线程模型导致的问题</p>
+<ul>
+<li>调度器调度G时，全局锁竞争问题</li>
+<li>M转移G会造成 <strong>延迟和额外的系统负载</strong> 。比如当G中包含创建新协程的时候，M创建了G’，为了继续执行G，需要把G’交给M’执行，也造成了 <strong>很差的局部性</strong> ，因为G’和G是相关的，最好放在M上执行，而不是其他M’。</li>
+<li>系统调用(CPU在M之间的切换)导致频繁的线程阻塞和取消阻塞操作增加了系统开销。CPU切换线程，上下文开销，因为系统调用导致的线程频繁切换M；</li>
+</ul>
+<h2 id="GMP-的基本组成部份"><a href="#GMP-的基本组成部份" class="headerlink" title="GMP 的基本组成部份"></a>GMP 的基本组成部份</h2><h3 id="G-goroutine-协程"><a href="#G-goroutine-协程" class="headerlink" title="G: goroutine 协程"></a>G: goroutine 协程</h3><p>golang并发的执行单元</p>
+<ul>
+<li><strong>轻量性</strong>：每个goroutine都有自己的栈空间，定时器，初始化的栈空间2k（1.21），空间随着需求动态增长和压缩</li>
+<li><strong>并发执行</strong>：通过关键字 <code>go</code> 可以方便的创建执行并发的goroutine；以非阻塞的方式执行任务，提高程序的吞吐量和性能</li>
+<li><strong>调度</strong>：work-steal, hand-off 等机制保证性能释放</li>
+<li><strong>同步</strong>：通过channel，sync等途径进行Goroutine之间的信息传递</li>
+<li>对应的线程模型： M：N</li>
+</ul>
+<p>Goroutines 被多路复用到多个操作系统线程上，因此如果其中一个线程发生阻塞（例如在等待 I&#x2F;O 时），其他线程会继续运行。它们的设计隐藏了线程创建和管理的许多复杂性;</p>
+<h3 id="M-machine-操作系统线程（应用层）"><a href="#M-machine-操作系统线程（应用层）" class="headerlink" title="M: machine 操作系统线程（应用层）"></a>M: machine 操作系统线程（应用层）</h3><p>实际的执行单元，M本身是应用层的概念，每个M绑定一个对应的内核线程。</p>
+<h3 id="P-processor-管理调度的处理器"><a href="#P-processor-管理调度的处理器" class="headerlink" title="P: processor 管理调度的处理器"></a>P: processor 管理调度的处理器</h3><p>包含了运行Goroutine的资源，是和M关联的上下文，维护了一组Goroutine的队列，以及与之相关的调度器和执行堆栈。P 是用来管理调度 M 和执行 Goroutines 的实体。</p>
+<ul>
+<li>调度G：P 负责调度 Goroutines。它会从全局队列中获取 Goroutines 并将它们分配给 M 执行。</li>
+<li>本地队列：<strong>：</strong> P 维护了一个本地队列，用于存放等待执行的 Goroutines。这种本地队列的设计可以提高调度的效率，避免过多的全局锁竞争。更好的运用局部性原理。</li>
+<li>执行堆栈：P 包含了执行 Goroutines 所需的堆栈信息，它负责在执行过程中维护 Goroutine 的上下文信息。</li>
+<li><strong>GOMAXPROCS</strong>：通过 GOMAXPROCS 环境变量或者 runtime.GOMAXPROCS() 函数可以控制 P 的数量。防止因为不合适的最大处理个数，导致的CPU利用率下降；</li>
+</ul>
+<h2 id="进程-线程-协程"><a href="#进程-线程-协程" class="headerlink" title="进程 线程 协程"></a>进程 线程 协程</h2><h3 id="进程-process"><a href="#进程-process" class="headerlink" title="进程 process"></a>进程 process</h3><p>运行时程序的封装，操作系统角度来看是操作系统对于进程的描述，linux <code>pcb </code>task_struct结构体；</p>
+<ul>
+<li><code>进程是操作系统资源分配和调度的基本单位</code>，实现了操作系统内部的并发；</li>
+<li>每个进程都在独立的内存空间中（虚拟内存技术），互相之间不能访问对方的内存；</li>
+<li>进程之间通常使用IPC（进程间通信）来交换数据</li>
+</ul>
+<p>具体进程内包含的东西，操作系统详述</p>
+<h3 id="线程-thread"><a href="#线程-thread" class="headerlink" title="线程 thread"></a>线程 thread</h3><p>Linux下的线程是以进程pcb模拟实现的，并且这些pcb共用同一个虚拟地址空间，共享进程中的大部分资源，因此Linux下的线程实际上是一个 <code>轻量级进程</code>，相较传统进程更加 <code>轻量化</code>；</p>
+<ul>
+<li>线程是在进程内执行的 <code>独立执行单元</code>，多个线程可以共享同一进程的资源，包括内存空间和文件句柄等</li>
+<li><code>线程是CPU调度的基本单位，CPU通过调度PCB实现程序调度</code></li>
+<li>同一进程内的多个线程可以并发执行，共享同一地址空间，可以相互访问同一进程中的数据</li>
+<li>由于共享资源，需要进行同步操作来避免多个线程之间的数据竞争</li>
+</ul>
+<h3 id="协程-coroutine"><a href="#协程-coroutine" class="headerlink" title="协程 coroutine"></a>协程 coroutine</h3><ul>
+<li>协程是一种用户态的轻量级线程，它由程序员自行控制调度，而不是由操作系统控制。</li>
+<li>协程可以在单线程中实现并发，可以根据需要在不同的时间点暂停、恢复、和切换执行。</li>
+<li>由于协程是由用户控制调度的，因此切换开销比线程要小，可以有效提高程序的并发能力。</li>
+</ul>
+<h2 id="GMP调度模型"><a href="#GMP调度模型" class="headerlink" title="GMP调度模型"></a>GMP调度模型</h2><h3 id="调度器设计策略"><a href="#调度器设计策略" class="headerlink" title="调度器设计策略"></a>调度器设计策略</h3><p><strong>复用线程</strong>：避免频繁的创建，销毁线程，而是对线程的复用</p>
+<ul>
+<li>work steal 机制：当本线程无可运行的G时，全局队列中也不存在可用的G，尝试从其他M绑定的P中偷取G，而不是销毁线程</li>
+<li>hand off 机制：当本线程因为G进行系统调用阻塞时，线程释放绑定的P，将P转移给其他空闲的线程</li>
+</ul>
+<p><strong>利用并行</strong>：<code>GOMAXPROCS</code> 设置P的数量，最多有 <code>GOMAXPROCS</code>个线程分布在多个CPU上同时运行。<code>GOMAXPROCS</code>也限制了并发的程度；</p>
+<p><strong>抢占</strong>：在coroutine中要等待一个协程主动让出CPU才执行下一个协程，在go中，一个goroutine最多占用一个线程10ms，防止其他线程被饿死，这就是goroutine和coroutine不同的地方</p>
+<p><strong>全局G队列</strong>：新的调度器中仍然存在全局G队列，但是功能被弱化，当M无法执行work stealing从其他P偷不到G时，从全局G队列中获取G</p>
+<h3 id="协程的调度流程"><a href="#协程的调度流程" class="headerlink" title="协程的调度流程"></a>协程的调度流程</h3><p><img src="/image/gmp/goroutine.png" srcset="/img/loading.gif" lazyload></p>
+<p><a target="_blank" rel="noopener" href="https://www.kancloud.cn/aceld/golang/1958305">来源</a>  : Golang 修养之路</p>
+<ol>
+<li>通过go创建一个goroutine</li>
+<li>有两个存储G的队列，一个是局部调度器P的本地队列(256大小)，一个是全局G队列。如果P的本地队列已经满了就会保存在全局队列中；</li>
+<li>G只能运行在M中，一个M必须持有一个P，M和P时1：1关系。M会从P的本地队列弹出一个可执行状态的G来执行，P的本地队列为空，就会想从其他的P中偷取部分可执行的G</li>
+<li>一个M调度G执行的过程是一个循环的过程</li>
+<li>当M执行一个G发生了系统调用或者其他阻塞操作，M会阻塞，如果当前有一些G在执行，runtime会将这线程M从P中摘除（detach），然后再创建一个新的操作系统的线程(如果有空闲的线程可用就复用空闲线程)来服务于这个P；</li>
+<li>当M的系统调用结束时，这个G会尝试获取一个空闲的P执行，并放入这个P的本地队列。如果获取不到P，那么这个线程M就会变成休眠状态，加入到空闲线程队列中，这个G会被放入全局队列中；</li>
+</ol>
+<p>Note：</p>
+<ul>
+<li><p>应用内go出去的func()，如果P本地队列没有满的话，放入本地队列；</p>
+</li>
+<li><p>本地队列满创建新的goroutine，需要执行负载均衡(将P中前一半的队列打散，还有新创建的G转移到全局队列中)；</p>
+</li>
+<li><p>在创建G时，运行的G会尝试唤醒其他空闲的P和M组合去执行 。提高cpu的利用率；唤醒的M没有可用的G时，进入自旋模式，这意味着它会轮询（自旋）查看全局队列中是否有可以执行的 Goroutine，而不是进入睡眠状态等待调度器唤醒。</p>
+<ul>
+<li>自旋模式的目的是避免线程阻塞和唤醒的开销，因为线程的阻塞和唤醒操作会涉及到操作系统的系统调用，其开销相对较大。通过自旋模式，M 可以在不进入睡眠状态的情况下等待新的任务。然而，自旋模式也会占用 CPU 资源，因此需要在平衡性能和资源利用的考量下使用。golang会根据系统负载，动态调整M的自旋行为；</li>
+</ul>
+</li>
+<li><p>从全局Goroutine队列中获取可执行的Goroutine(<code>findrunnable()</code>)，获取的G个数；每次不会获取太多</p>
+<figure><div class="code-wrapper"><pre class="line-numbers language-none"><code class="language-none">n &#x3D;  min(len(GQ) &#x2F; GOMAXPROCS +  1,  cap(LQ) &#x2F; 2 )<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre></div></figure></li>
+<li><p>阻塞的系统调用：M1会和P1解绑，M1和对应的G进入系统调用，如果P1本地队列有G、全局队列有G或有空闲的M，P1都会立马唤醒1个M和它绑定，否则P1则会加入到空闲P列表，等待M来获取可用的p</p>
+</li>
+<li><p>非阻塞的系统调用：M1会和P1解绑，但是M1会标记P1，M1和对应的G进入系统调用状态，当M1退出系统调用时，会尝试获取P1，如果无法获取，则获取空闲的P，如果依然没有，G会被记为可运行状态，并加入到全局队列,M1因为没有P的绑定而变成休眠状态(长时间休眠等待GC回收销毁)</p>
+</li>
+</ul>
+<h3 id="调度器的生命周期"><a href="#调度器的生命周期" class="headerlink" title="调度器的生命周期"></a>调度器的生命周期</h3><pre><code class="mermaid">graph TD;
+	A(开始) --> B(创建第一个线程M0);
+	B --> C(创建第一个Go协程G0);
+	C --> D(关联M0和G0);
+	D --> E(调度初始化);
+	E --> F("创建main()中的goroutine");
+	F --> G(启动M0);
+	G --> H(M绑定P);
+	H --> I&#123;"M通过P获取到G?"&#125;;
+	I --> |N|M(M休眠);
+	M --> |"M被唤醒启动"|H;
+	I --> |Y|J(M设置G环境);
+	J --> K(M执行G);
+	K --> L(G退出);
+	L --> I;</code></pre>
+
+<p>特殊的M0和G0</p>
+<ul>
+<li>M0<br>启动后编号为0的主线程，这个M对应的实例会在全局变量runtime.m0中，不需要再heap上分配，m0负责执行初始化操作和启动第一个G，之后M0就和其他的M相同；</li>
+<li>G0<br>每启动一个M都会第一个创建的goroutine，G0仅用于负责调度的G，G0不执行任何可执行的函数，每个M都会有一个自己的G0。在调度或系统调用是会使用G0的栈空间，全局变量的G0是M0的G0；</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/golang/" class="category-chain-item">golang</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>GMP模型</div>
+      <div>https://serendipityconfusion.github.io/2024/03/01/golang/gmp/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>serendipityConfusion</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年3月1日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/03/01/golang/gc/" title="GC">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">GC</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/03/01/golang/map/" title="Golang map的底层结构和渐进式hash">
+                        <span class="hidden-mobile">Golang map的底层结构和渐进式hash</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#comments', function() {
+      var light = 'github-light';
+      var dark = 'github-dark';
+      var schema = document.documentElement.getAttribute('data-user-color-scheme');
+      if (schema === 'dark') {
+        schema = dark;
+      } else {
+        schema = light;
+      }
+      window.UtterancesThemeLight = light;
+      window.UtterancesThemeDark = dark;
+      var s = document.createElement('script');
+      s.setAttribute('src', 'https://utteranc.es/client.js');
+      s.setAttribute('repo', 'serendipityConfusion/serendipityConfusion.github.io');
+      s.setAttribute('issue-term', 'pathname');
+      
+      s.setAttribute('label', 'utterances');
+      
+      s.setAttribute('theme', schema);
+      s.setAttribute('crossorigin', 'anonymous');
+      document.getElementById('comments').appendChild(s);
+    })
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  <script>
+  Fluid.utils.createScript('https://cdn.jsdelivr.net/npm/mermaid@11.6.0/dist/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.utils.listenDOMLoaded(function() {
+      Fluid.events.registerRefreshCallback(function() {
+        if ('mermaid' in window) {
+          mermaid.init();
+        }
+      });
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script  src="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js" ></script>
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

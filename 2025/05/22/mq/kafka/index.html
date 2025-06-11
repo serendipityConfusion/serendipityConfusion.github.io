@@ -1,0 +1,825 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/global/icon.png">
+  <link rel="icon" href="/global/icon.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="serendipityConfusion">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="Kafkakafka的组成部分：  消息系统：和传统的消息中间件一样，都具有系统解耦，冗余存储，流量削峰，缓冲，异步通信等功能； 存储系统：持久化 流式处理平台  整体架构 Producer：生产者,发送kafka消息到对应的broker Consumer：消费者，从broker中消费消息（pull模式） Consumer Group：快速消费   Broker：服务节点 Controller：元">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kafka">
+<meta property="og:url" content="https://serendipityconfusion.github.io/2025/05/22/mq/kafka/index.html">
+<meta property="og:site_name" content="serendipityConfusion">
+<meta property="og:description" content="Kafkakafka的组成部分：  消息系统：和传统的消息中间件一样，都具有系统解耦，冗余存储，流量削峰，缓冲，异步通信等功能； 存储系统：持久化 流式处理平台  整体架构 Producer：生产者,发送kafka消息到对应的broker Consumer：消费者，从broker中消费消息（pull模式） Consumer Group：快速消费   Broker：服务节点 Controller：元">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-05-22T15:31:04.000Z">
+<meta property="article:modified_time" content="2025-06-11T16:53:01.000Z">
+<meta property="article:author" content="serendipityConfusion">
+<meta property="article:tag" content="mq">
+<meta property="article:tag" content="kafka">
+<meta property="article:tag" content="高性能">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>kafka - serendipityConfusion</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"serendipityconfusion.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"auto"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null},"woyaola":null,"cnzz":null},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>serendipityConfusion</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="kafka"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-05-22 23:31" pubdate>
+          2025年5月22日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.2k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          11 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">kafka</h1>
+            
+              <p id="updated-time" class="note note-info" style="">
+                
+                  
+                    本文最后更新于 2025年6月12日 凌晨
+                  
+                
+              </p>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="Kafka"><a href="#Kafka" class="headerlink" title="Kafka"></a>Kafka</h1><p>kafka的组成部分：</p>
+<ul>
+<li>消息系统：和传统的消息中间件一样，都具有系统解耦，冗余存储，流量削峰，缓冲，异步通信等功能；</li>
+<li>存储系统：持久化</li>
+<li>流式处理平台</li>
+</ul>
+<h2 id="整体架构"><a href="#整体架构" class="headerlink" title="整体架构"></a>整体架构</h2><ul>
+<li>Producer：生产者,发送kafka消息到对应的broker</li>
+<li>Consumer：消费者，从broker中消费消息（pull模式）<ul>
+<li>Consumer Group：快速消费</li>
+</ul>
+</li>
+<li>Broker：服务节点</li>
+<li>Controller：元数据管理<ul>
+<li>管理Partition的Leader选举，副本同步</li>
+</ul>
+</li>
+<li>Zookeeper&#x2F;KRaft：集群元数据协调<ul>
+<li>保存Broker信息，Partition位置，控制器选举</li>
+<li>KRaft不需要zookeeper</li>
+</ul>
+</li>
+<li>Topic：逻辑概念，消息的主题（分类）（包含多个Partition）</li>
+<li>Partition：逻辑概念，分区（<strong>主从机制核心</strong>）<ul>
+<li>每个partition有一个Leader，多个Follower副本</li>
+</ul>
+</li>
+</ul>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="DESCRIPTION" height="465px" preserveAspectRatio="none" style="width:681px;height:465px;background:#FFFFFF;" version="1.1" viewBox="0 0 681 465" width="681px" zoomAndPan="magnify"><title>Kafka &#26550;&#26500;&#22270;&#65288;KRaft &#27169;&#24335;&#65289;</title><defs/><g><g class="title" data-source-line="1"><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="196.7515" x="235.1892" y="22.9951">Kafka &#26550;&#26500;&#22270;&#65288;KRaft &#27169;&#24335;&#65289;</text></g><!--cluster Kafka Cluster--><g class="cluster" data-entity="Kafka Cluster" data-source-line="16" data-uid="ent0004" id="cluster_Kafka Cluster"><path d="M216.63,191.9669 L324.1134,191.9669 A3.75,3.75 0 0 1 326.6134,194.4669 L333.6134,214.2638 L671.63,214.2638 A2.5,2.5 0 0 1 674.13,216.7638 L674.13,456.3069 A2.5,2.5 0 0 1 671.63,458.8069 L216.63,458.8069 A2.5,2.5 0 0 1 214.13,456.3069 L214.13,194.4669 A2.5,2.5 0 0 1 216.63,191.9669" fill="#EEE8D5" style="stroke:#000000;stroke-width:1.5;"/><line style="stroke:#000000;stroke-width:1.5;" x1="214.13" x2="333.6134" y1="214.2638" y2="214.2638"/><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="106.4834" x="218.13" y="206.962">Kafka Cluster</text></g><!--cluster Topic: orders--><g class="cluster" data-entity="Topic: orders" data-source-line="22" data-uid="ent0008" id="cluster_Topic: orders"><path d="M337.63,234.9669 L442.6661,234.9669 A3.75,3.75 0 0 1 445.1661,237.4669 L452.1661,257.2637 L647.63,257.2637 A2.5,2.5 0 0 1 650.13,259.7637 L650.13,345.3669 A2.5,2.5 0 0 1 647.63,347.8669 L337.63,347.8669 A2.5,2.5 0 0 1 335.13,345.3669 L335.13,237.4669 A2.5,2.5 0 0 1 337.63,234.9669" fill="#EEE8D5" style="stroke:#000000;stroke-width:1.5;"/><line style="stroke:#000000;stroke-width:1.5;" x1="335.13" x2="452.1661" y1="257.2637" y2="257.2637"/><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="104.0361" x="339.13" y="249.962">Topic: orders</text></g><!--entity B1--><g class="entity" data-entity="B1" data-source-line="18" data-uid="ent0005" id="entity_B1"><rect fill="#FDF6E3" height="47.9375" rx="2.5" ry="2.5" style="stroke:#000000;stroke-width:0.5;" width="151.9121" x="476.18" y="394.8669"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="51.2227" x="486.18" y="416.0055">Broker 1</text><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="131.9121" x="486.18" y="429.9743">(Leader of Partition 0)</text></g><!--entity B2--><g class="entity" data-entity="B2" data-source-line="19" data-uid="ent0006" id="entity_B2"><rect fill="#FDF6E3" height="47.9375" rx="2.5" ry="2.5" style="stroke:#000000;stroke-width:0.5;" width="151.9121" x="269.18" y="394.8669"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="51.2227" x="279.18" y="416.0055">Broker 2</text><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="131.9121" x="279.18" y="429.9743">(Leader of Partition 1)</text></g><!--entity B3--><g class="entity" data-entity="B3" data-source-line="20" data-uid="ent0007" id="entity_B3"><rect fill="#FDF6E3" height="47.9375" rx="2.5" ry="2.5" style="stroke:#000000;stroke-width:0.5;" width="86" x="230.13" y="276.9469"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="51.2227" x="240.13" y="298.0855">Broker 3</text><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="66" x="240.13" y="312.0543">(Followers)</text></g><!--entity Part0--><g class="entity" data-entity="Part0" data-source-line="23" data-uid="ent0009" id="entity_Part0"><rect fill="#FDF6E3" height="61.9063" rx="2.5" ry="2.5" style="stroke:#000000;stroke-width:0.5;" width="123.8574" x="510.2" y="269.9669"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="61.998" x="520.2" y="291.1055">Partition 0</text><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="65.0801" x="520.2" y="305.0743">Leader: B1</text><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="103.8574" x="520.2" y="319.043">Followers: B2, B3</text></g><!--entity Part1--><g class="entity" data-entity="Part1" data-source-line="24" data-uid="ent0010" id="entity_Part1"><rect fill="#FDF6E3" height="61.9063" rx="2.5" ry="2.5" style="stroke:#000000;stroke-width:0.5;" width="123.8574" x="351.2" y="269.9669"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="61.998" x="361.2" y="291.1055">Partition 1</text><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="65.0801" x="361.2" y="305.0743">Leader: B2</text><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="103.8574" x="361.2" y="319.043">Followers: B1, B3</text></g><!--entity P--><g class="entity" data-entity="P" data-source-line="13" data-uid="ent0002" id="entity_P"><ellipse cx="450.1349" cy="56.4869" fill="#F1F1F1" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><path d="M450.1349,64.4869 L450.1349,91.4869 M437.1349,72.4869 L463.1349,72.4869 M450.1349,91.4869 L437.1349,106.4869 M450.1349,91.4869 L463.1349,106.4869" fill="none" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="62.5898" x="418.84" y="120.982">Producer</text></g><!--entity CG--><g class="entity" data-entity="CG" data-source-line="14" data-uid="ent0003" id="entity_CG"><ellipse cx="577.1338" cy="56.4869" fill="#F1F1F1" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><path d="M577.1338,64.4869 L577.1338,91.4869 M564.1338,72.4869 L590.1338,72.4869 M577.1338,91.4869 L564.1338,106.4869 M577.1338,91.4869 L590.1338,106.4869" fill="none" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="118.7676" x="517.75" y="120.982">Consumer Group</text></g><!--entity Ctrl--><g class="entity" data-entity="Ctrl" data-source-line="28" data-uid="ent0011" id="entity_Ctrl"><rect fill="#FDF6E3" height="47.9375" rx="2.5" ry="2.5" style="stroke:#000000;stroke-width:0.5;" width="166.5664" x="13.85" y="62.1669"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="95.5957" x="23.85" y="83.3055">KRaft Controller</text><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="146.5664" x="23.85" y="97.2743">(Raft metadata quorum)</text></g><g class="entity" data-entity="GMN21" data-source-line="44" data-uid="ent0022" id="entity_GMN21"><path d="M215.46,43.2969 L215.46,82.1269 L180.7,86.1269 L215.46,90.1269 L215.46,128.9609 A0,0 0 0 0 215.46,128.9609 L376.8067,128.9609 A0,0 0 0 0 376.8067,128.9609 L376.8067,53.2969 L366.8067,43.2969 L215.46,43.2969 A0,0 0 0 0 215.46,43.2969" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M366.8067,43.2969 L366.8067,53.2969 L376.8067,53.2969 L366.8067,43.2969" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="133.8403" x="221.46" y="60.3638">Replaces ZooKeeper</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="56.9956" x="221.46" y="75.4966">Handles:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="128.8447" x="221.46" y="90.6294">- Controller election</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="122.1035" x="221.46" y="105.7622">- Cluster metadata</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="140.3467" x="221.46" y="120.895">- Topic/partition state</text></g><!--link P to Part0--><g class="link" data-entity-1="P" data-entity-2="Part0" data-source-line="30" data-uid="lnk12" id="link_P_Part0"><path d="M471.66,124.6869 C495.33,165.9669 529.9054,226.2719 551.7754,264.4119" fill="none" id="P-to-Part0" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="554.76,269.6169,553.7531,259.8196,552.2728,265.2794,546.8131,263.7991,554.76,269.6169" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="41.4058" x="501.13" y="172.0338">send()</text></g><!--link P to Part1--><g class="link" data-entity-1="P" data-entity-2="Part1" data-source-line="31" data-uid="lnk13" id="link_P_Part1"><path d="M433.75,124.5369 C429.61,135.4469 425.64,147.5069 423.13,158.9669 C414.94,196.4669 413.07,234.7971 412.83,263.5871" fill="none" id="P-to-Part1" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="412.78,269.5869,416.8549,260.6205,412.8217,264.587,408.8552,260.5538,412.78,269.5869" style="stroke:#181818;stroke-width:1;"/></g><!--link Part0 to B1--><g class="link" data-entity-1="Part0" data-entity-2="B1" data-source-line="33" data-uid="lnk14" id="link_Part0_B1"><path d="M566.93,332.0669 C563.57,351.5269 560.2905,370.5443 557.1905,388.5043" fill="none" id="Part0-to-B1" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="556.17,394.4169,561.6425,386.2284,557.0205,389.4897,553.7591,384.8677,556.17,394.4169" style="stroke:#181818;stroke-width:1;"/></g><!--link Part1 to B2--><g class="link" data-entity-1="Part1" data-entity-2="B2" data-source-line="34" data-uid="lnk15" id="link_Part1_B2"><path d="M395.44,332.0669 C384.03,351.5269 372.4468,371.2822 361.9068,389.2422" fill="none" id="Part1-to-B2" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="358.87,394.4169,366.8751,388.6794,361.4007,390.1046,359.9754,384.6303,358.87,394.4169" style="stroke:#181818;stroke-width:1;"/></g><!--link CG to Part0--><g class="link" data-entity-1="CG" data-entity-2="Part0" data-source-line="36" data-uid="lnk16" id="link_CG_Part0"><path d="M576.25,124.6869 C575.28,165.9669 573.88,225.4785 572.99,263.6185" fill="none" id="CG-to-Part0" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="572.85,269.6169,577.0589,260.7126,572.9666,264.6182,569.061,260.526,572.85,269.6169" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="33.5728" x="576.13" y="172.0338">poll()</text></g><!--link CG to Part1--><g class="link" data-entity-1="CG" data-entity-2="Part1" data-source-line="37" data-uid="lnk17" id="link_CG_Part1"><path d="M548.82,124.4569 C535.65,140.9169 519.33,160.0869 503.13,175.9669 C499.07,179.9469 497.01,179.7969 493.13,183.9669 C468.46,210.4469 448.7017,239.9429 433.7817,264.4329" fill="none" id="CG-to-Part1" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="430.66,269.5569,438.7585,263.952,433.2614,265.2869,431.9265,259.7898,430.66,269.5569" style="stroke:#181818;stroke-width:1;"/></g><!--reverse link Ctrl to B1--><g class="link" data-entity-1="Ctrl" data-entity-2="B1" data-source-line="39" data-uid="lnk18" id="link_Ctrl_B1"><path d="M88.5247,116.1264 C74.4247,167.9464 50.79,288.0069 115.13,355.8669 C164.88,408.3369 366.75,383.3869 438.13,394.8669 C450.39,396.8369 463.34,399.1869 475.94,401.6269" fill="none" id="Ctrl-backto-B1" style="stroke:#181818;stroke-width:1;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="90.1,110.3369,83.8774,117.9709,88.7872,115.1615,91.5967,120.0713,90.1,110.3369" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="96.9922" x="116.13" y="305.4838">metadata sync</text></g><!--reverse link Ctrl to B2--><g class="link" data-entity-1="Ctrl" data-entity-2="B2" data-source-line="40" data-uid="lnk19" id="link_Ctrl_B2"><path d="M81.0587,115.5922 C54.9087,164.6722 6,275.9269 54.13,355.8669 C76.08,392.3269 190.3,407.5169 268.94,413.7269" fill="none" id="Ctrl-backto-B2" style="stroke:#181818;stroke-width:1;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="83.88,110.2969,76.1178,116.3589,81.5289,114.7096,83.1782,120.1207,83.88,110.2969" style="stroke:#181818;stroke-width:1;"/></g><!--reverse link Ctrl to B3--><g class="link" data-entity-1="Ctrl" data-entity-2="B3" data-source-line="41" data-uid="lnk20" id="link_Ctrl_B3"><path d="M131.8186,114.3826 C154.3186,132.8426 180.37,156.2069 203.13,183.9669 C227.44,213.5969 249.17,252.5069 261.75,276.8569" fill="none" id="Ctrl-backto-B3" style="stroke:#181818;stroke-width:1;stroke-dasharray:7.0,7.0;"/><polygon fill="#181818" points="127.18,110.5769,131.6008,119.3778,131.0455,113.7483,136.675,113.193,127.18,110.5769" style="stroke:#181818;stroke-width:1;"/></g><!--SRC=[TLAnRjim4Dtv5GTtIO0wYMGqA8mYWnNR1Tp1I3iLNbZfx0YcIVL8eMWBRntQAHzG842tV44detyJh_c57iL4eG4Rq22-k_VktIDTwHJ2HCwN4hQtVxUtF-v__tlO_9nSoRc3xTsV-ytDm-QN47PPwagIN05XxgHUCEsx01Z8VBaWK-iYCyeGl1XTZiw7FLynL205z9FYDiP6HhltvJU491NhIBFYibmSK1mEXwylN-rLN0iXSyV7pfHCKUT87P0MfazePhIjLqWmPi6ggMLZ8Px6TSBYcQgjyrG_dh_d3Ji3Cakc9pDzz0ubJmSpXwaaLxhIQ3WxRZG7oLvMUe2LFBBIlQmUiqP6AVC5oJvszWItjgu_cAhC-z2aOOFh7Q78tqm70ttsEDEjB1_JbomRqkBsiyCQIQIHxceaEne-XBM_aaWcl2E-1aVCG-BT6cI5JXRIIVXS6wfNOStCaH9Y2jtkHJ05VR2eYwFZ24ouewbvW8Dli718XSZ6E-oAXp8xGfdkny2RanDcSqlhn7xLULHBet-ENnk7GENYslcxR9nUOSMF42ryD6Q2M269jr8N2crVTAET0HK7mb5wD3orTYf3pMsULctUrac7WjS6F_C_]--></g></svg>
+<p>说明：</p>
+<ul>
+<li>Producer 向不同的partition发送消息</li>
+<li>不同的partition分配到不同的Broker上，每个Partition有一个Leader负责读写；</li>
+<li>Consumer订阅Topic的Partition并从中消费消息；</li>
+<li>ZooKeeper&#x2F;KRaft 负责元数据管理，选主和集群协调；</li>
+</ul>
+<h2 id="多副本机制"><a href="#多副本机制" class="headerlink" title="多副本机制"></a>多副本机制</h2><p>通过增加副本数量，提高容灾能力；同一分区的不同副本中保存的是相同的消息（在同一时刻，副本之间并非完全一样），副本之间是一主多从的关系，其中 leader 副本负责处理读写请求，follower 副本只负责与 leader 副本的消息同步。</p>
+<p>副本处于不同的 broker 中，当 leader 副本出现故障时，从 follower 副本中重新选举新的 leader 副本对外提供服务。</p>
+<p>Kafka 通过多副本机制实现了故障的自动转移，当 Kafka 集群中某个 broker 失效时仍然能保证服务可用。</p>
+<p>副本分类：</p>
+<ul>
+<li>AR（Assigned Replicas）：所有副本</li>
+<li>ISR（In-Sync Replicas）：一定程度同步的副本</li>
+<li>OSR（Out-of-Sync Replicas）：滞后过多的副本</li>
+</ul>
+<p>Leader副本负责维护和跟踪其他副本的状态，根据情况调整ISR集合和OSR集合；</p>
+<p>当Leader副本发生故障时，只有在ISR集合中的副本有资格被选举为新的Leader；（可通过参数调整）</p>
+<p>ISR 与 HW（High Watermark）和 LEO（LogEndOffset）关系：</p>
+<ul>
+<li>HW（High Watermark）：标记Consumer的可消费区间为 [:HW)，不包含HW位置；</li>
+<li>LEO（LogEndOffset）：下一条消息的写入位置偏移量；</li>
+</ul>
+<h2 id="Kafka同步机制"><a href="#Kafka同步机制" class="headerlink" title="Kafka同步机制"></a>Kafka同步机制</h2><h3 id="关键点"><a href="#关键点" class="headerlink" title="关键点"></a>关键点</h3><ul>
+<li>副本同步机制<ul>
+<li>Partition将Leader数据同步到Follower</li>
+<li>replication + ISR 机制</li>
+</ul>
+</li>
+<li>生产者写入同步<ul>
+<li>写入是否等待副本确认</li>
+<li>acks 设置的值：<ul>
+<li>0 异步，不等待响应</li>
+<li>1 只等待Leader写成功</li>
+<li>all&#x2F;-1 等待所有的ISR副本写成功</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>日志落盘同步<ul>
+<li>写入磁盘是否强制刷盘</li>
+<li>默认页缓存，不立即刷盘，提高性能</li>
+<li>配置 <ul>
+<li><code>flush.messages</code>:多少消息刷一次磁盘</li>
+<li><code>flush.ms</code>：多少ms刷一次磁盘</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>消费者Offset提交同步<ul>
+<li>消费者消费后的offset是否同步提交</li>
+<li>配置：<ul>
+<li><code>enable.auto.commit</code>:自动提交</li>
+<li><code>auto.commit.interval.ms</code>:自动提交间隔</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="分区数的设定"><a href="#分区数的设定" class="headerlink" title="分区数的设定"></a>分区数的设定</h2><p>根据实际的业务场景，软硬件条件进行具体的考量；</p>
+<p>分区是 Kafka 中最小的并行操作单元，对生产者而言，每一个分区的数据写入是完全可以并行化的；<br>对消费者而言，Kafka 只允许单个分区中的消息被一个消费者线<br>程消费，一个消费组的消费并行度完全依赖于所消费的分区数；</p>
+<ul>
+<li>并发单位（Consumer Group内并发消费的数量）</li>
+<li>吞吐单位（Producter 可以并发写入多个分区）</li>
+<li>伸缩单位（迁移，重分配都是按照分区操作）</li>
+</ul>
+<p>估算partition的实用公式：<br><code>partition 数量 = consumer（实例数）* 每个实例最大并发 * 安全系数（1.5～2）</code></p>
+<h3 id="高性能原因"><a href="#高性能原因" class="headerlink" title="高性能原因"></a>高性能原因</h3><ul>
+<li>批处理<ul>
+<li>聚合消息，降低调用次数（传递的开销）</li>
+</ul>
+</li>
+<li>日志格式改进 + 编码改进<ul>
+<li>Varints和ZigZag编码，提升网络的传输效率</li>
+</ul>
+</li>
+<li>消息压缩<ul>
+<li>减少网络传输量，降低网络IO，使用时间换空间；</li>
+</ul>
+</li>
+<li>索引<ul>
+<li>独立的索引文件，快速查询</li>
+</ul>
+</li>
+<li>分区<ul>
+<li>分布式来降低单个实例的压力</li>
+</ul>
+</li>
+<li>顺序写入<ul>
+<li>追加顺序写入，提高吞吐</li>
+</ul>
+</li>
+<li>页缓存<ul>
+<li>使用页缓存加速数据查询</li>
+</ul>
+</li>
+<li>零拷贝（Zero Copy）<ul>
+<li>（sendfile 系统调用在 Linux 内核版本 2.1 中被引入，目的是简化通过网络在两个通道之间进行的数据传输过程。sendfile 允许操作系统从 Page Cache 直接将文件发送至 socket 缓存区，节省了内核空间 &amp; 用户空间的两次冗余的 cpu 拷贝操作，最后只需要通过 DMA 传输将数据复制到网卡。</li>
+<li>使得调用变得更加简洁：不仅减少了 CPU 拷贝的次数，由于文件传输拷贝仅发生在内核空间，还减少了上下文切换的次数。）</li>
+</ul>
+</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/mq/" class="category-chain-item">mq</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/mq/" class="print-no-link">#mq</a>
+      
+        <a href="/tags/kafka/" class="print-no-link">#kafka</a>
+      
+        <a href="/tags/%E9%AB%98%E6%80%A7%E8%83%BD/" class="print-no-link">#高性能</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>kafka</div>
+      <div>https://serendipityconfusion.github.io/2025/05/22/mq/kafka/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>serendipityConfusion</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年5月22日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/05/12/distributed/theory/" title="分布式系统设计基础理论-CAP，BASE">
+                        <span class="hidden-mobile">分布式系统设计基础理论-CAP，BASE</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#comments', function() {
+      var light = 'github-light';
+      var dark = 'github-dark';
+      var schema = document.documentElement.getAttribute('data-user-color-scheme');
+      if (schema === 'dark') {
+        schema = dark;
+      } else {
+        schema = light;
+      }
+      window.UtterancesThemeLight = light;
+      window.UtterancesThemeDark = dark;
+      var s = document.createElement('script');
+      s.setAttribute('src', 'https://utteranc.es/client.js');
+      s.setAttribute('repo', 'serendipityConfusion/serendipityConfusion.github.io');
+      s.setAttribute('issue-term', 'pathname');
+      
+      s.setAttribute('label', 'utterances');
+      
+      s.setAttribute('theme', schema);
+      s.setAttribute('crossorigin', 'anonymous');
+      document.getElementById('comments').appendChild(s);
+    })
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script  src="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js" ></script>
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

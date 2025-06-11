@@ -1,0 +1,976 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/global/icon.png">
+  <link rel="icon" href="/global/icon.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="serendipityConfusion">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="Redis 高可用（High Availability）前置知识高可用（High Availability）是指系统能够在出现部分组件故障，异常或维护时，依然持续对外提供服务，最大限度减少业务中断时间； 高可用架构一般通过冗余部署，自动故障转移，健康检查，负载均衡等实现，目标是将系统的可用性指标（如 SLA）提升到 99.99% 或更高； 主从模式分为主节点和从节点，从节点，不提供写服务，只同步主">
+<meta property="og:type" content="article">
+<meta property="og:title" content="高可用">
+<meta property="og:url" content="https://serendipityconfusion.github.io/2025/04/29/redis/cluster/index.html">
+<meta property="og:site_name" content="serendipityConfusion">
+<meta property="og:description" content="Redis 高可用（High Availability）前置知识高可用（High Availability）是指系统能够在出现部分组件故障，异常或维护时，依然持续对外提供服务，最大限度减少业务中断时间； 高可用架构一般通过冗余部署，自动故障转移，健康检查，负载均衡等实现，目标是将系统的可用性指标（如 SLA）提升到 99.99% 或更高； 主从模式分为主节点和从节点，从节点，不提供写服务，只同步主">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-04-29T08:27:48.000Z">
+<meta property="article:modified_time" content="2025-06-11T16:53:01.000Z">
+<meta property="article:author" content="serendipityConfusion">
+<meta property="article:tag" content="redis">
+<meta property="article:tag" content="cluster">
+<meta property="article:tag" content="sentinel">
+<meta property="article:tag" content="proxy">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>高可用 - serendipityConfusion</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"serendipityconfusion.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"auto"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null},"woyaola":null,"cnzz":null},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>serendipityConfusion</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="高可用"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-04-29 16:27" pubdate>
+          2025年4月29日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.4k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          29 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">高可用</h1>
+            
+              <p id="updated-time" class="note note-info" style="">
+                
+                  
+                    本文最后更新于 2025年6月12日 凌晨
+                  
+                
+              </p>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="Redis-高可用（High-Availability）"><a href="#Redis-高可用（High-Availability）" class="headerlink" title="Redis 高可用（High Availability）"></a>Redis 高可用（High Availability）</h1><h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><p>高可用（High Availability）是指系统能够在出现部分组件故障，异常或维护时，依然持续对外提供服务，最大限度减少业务中断时间；</p>
+<p>高可用架构一般通过冗余部署，自动故障转移，健康检查，负载均衡等实现，目标是将系统的可用性指标（如 SLA）提升到 99.99% 或更高；</p>
+<h2 id="主从模式"><a href="#主从模式" class="headerlink" title="主从模式"></a>主从模式</h2><p>分为主节点和从节点，从节点，不提供写服务，只同步主节点数据</p>
+<p>主从复制分为全量复制和增量复制；</p>
+<h3 id="全量复制"><a href="#全量复制" class="headerlink" title="全量复制"></a>全量复制</h3><p>当从节点第一次连接主节点（丢失数据过多，超过主的repl_backlog_buffer命令缓冲区数量）时，会执行全量复制；</p>
+<h4 id="过程"><a href="#过程" class="headerlink" title="过程"></a>过程</h4><pre><code class="mermaid">sequenceDiagram;
+	participant A as "主服务器";
+  participant B as "从服务器";
+	B->>A:从服务器连接主服务器并发送psync[runID][offset]
+	A->>A:bgsave生成快照，并记录期间的写命令
+	A->>B:发送快照
+	B->>B:载入快照
+	A->>B:发送缓存的写命令
+	B->>B:执行写命令</code></pre>
+<h4 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h4><ul>
+<li>注意数据量问题，当数据量过大时，全量复制阶段主节点 fork + 保存RDB文件耗时过大，导致从节点长时间接受不到数据超时，主从节点的数据同步同样可能陷入 全量复制→超时导致复制中断→重连→全量复制→超时导致复制中断 的循环中；<ul>
+<li>解决方案：<ul>
+<li>增大repl-timeout，增大超时时间，避免超时导致复制中断；</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>复制写命令缓冲区溢出也会导致这种循环问题<ul>
+<li>解决方案：<ul>
+<li>增大写命令缓冲区大小，避免缓冲区溢出；</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="无磁盘模式"><a href="#无磁盘模式" class="headerlink" title="无磁盘模式"></a>无磁盘模式</h4><p>Redis 的全量复制最初是基于磁盘的：主节点会通过 bgsave 生成 RDB 快照文件，将其写入磁盘，然后再通过网络发送给从节点。<br>从 Redis 4.0 开始，支持了“无磁盘复制”模式（diskless replication），即主节点可以直接将 RDB 数据通过管道流式发送给从节点，无需先落盘到磁盘，减少了磁盘 IO 压力和延迟。</p>
+<p>是否采用无磁盘模式由配置项 repl-diskless-sync 控制，默认仍为基于磁盘模式。</p>
+<h3 id="增量复制"><a href="#增量复制" class="headerlink" title="增量复制"></a>增量复制</h3><p>用于网络中断等情况后的复制，只将中断期间主节点执行的写命令发送给从节点，与全量复制相比更加高效；</p>
+<h4 id="过程-1"><a href="#过程-1" class="headerlink" title="过程"></a>过程</h4><pre><code class="mermaid">sequenceDiagram
+    participant Slave as 从节点
+    participant Master as 主节点
+
+    Slave->>Master: PSYNC &#123;replicationid&#125; &#123;offset&#125;
+    alt offset有效（增量复制）
+        Master-->>Slave: 发送复制积压缓冲区(repl_backlog_buffer)中自 offset 起的命令
+        Slave-->>Master: ACK offset
+    else offset无效（执行全量复制）
+        Master-->>Slave: -FULLRESYNC new_replid new_offset
+        Master->>Slave: 发送RDB快照
+        Master->>Slave: 发送RDB后积压命令
+        Slave-->>Master: ACK offset
+    end</code></pre>
+<ul>
+<li><code>repl_backlog_buffer</code> 定长的环形数组，数组内容满了，从头开始覆盖前面的内容；</li>
+<li>master会记录自身的偏移量(master_repl_offset)和不同slave(slave_repl_offset)的偏移量;断连之后，通过偏移量同步给从节点；<br><br>如果偏移量已经被覆盖，就重新全量同步；</li>
+<li>通过 repid（从节点标识），replication offset 确定对应的偏移量，确认同步的进度</li>
+</ul>
+<h3 id="问题-1"><a href="#问题-1" class="headerlink" title="问题"></a>问题</h3><p>主节点发生宕机时需要人工切换节点的角色</p>
+<h2 id="哨兵模式"><a href="#哨兵模式" class="headerlink" title="哨兵模式"></a>哨兵模式</h2><h3 id="目标"><a href="#目标" class="headerlink" title="目标"></a>目标</h3><p>解决主从模式需要人工切换的问题，通过<strong>故障的自动转移</strong>，实现<strong>高可用</strong>；</p>
+<h3 id="哨兵功能"><a href="#哨兵功能" class="headerlink" title="哨兵功能"></a>哨兵功能</h3><ul>
+<li>监控：不断检查主节点和从节点的健康状态</li>
+<li>自动故障转移：当主节点不能正常工作时，哨兵会自动进行故障转移工作，它会将失效主节点的其中一个从节点升级为新的主节点，让其他从节点改为复制新的主节点；</li>
+<li>配置提供者：客户端初始化时，连接哨兵获取当前Redis服务的主节点地址</li>
+<li>通知：哨兵可以将故障转移的结果发送给客户端</li>
+</ul>
+<h3 id="哨兵通信"><a href="#哨兵通信" class="headerlink" title="哨兵通信"></a>哨兵通信</h3><ul>
+<li>哨兵之间通信：通过发布订阅模式进行通信的 <code>_sentinel_:hello</code> 频道</li>
+<li>哨兵和Redis实例通信：<ul>
+<li>Redis协议（RESP）</li>
+<li>方式：TCP，端口（6379）</li>
+<li>命令：<ul>
+<li><code>PING</code>: 检测主从是否存活</li>
+<li><code>INFO replication</code>：获取主从复制的状态</li>
+<li><code>SUBSCRIBE +switch-master</code>：监听主从切换通知</li>
+<li><code>SENTINEL is-master-down-by-addr</code>：判断主节点是否下线</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="故障转移的过程"><a href="#故障转移的过程" class="headerlink" title="故障转移的过程"></a>故障转移的过程</h3><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="ACTIVITY" height="858px" preserveAspectRatio="none" style="width:458px;height:858px;background:#FFFFFF;" version="1.1" viewBox="0 0 458 858" width="458px" zoomAndPan="magnify"><defs/><g><ellipse cx="296.0483" cy="20" fill="#222222" rx="10" ry="10" style="stroke:#222222;stroke-width:1;"/><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="169.4614" x="211.3176" y="50"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="149.4614" x="221.3176" y="71.1387">Sentinel &#23450;&#26399; PING &#20027;&#33410;&#28857;</text><polygon fill="#F1F1F1" points="260.1293,103.9688,331.9672,103.9688,343.9672,115.9688,331.9672,127.9688,260.1293,127.9688,248.1293,115.9688,260.1293,103.9688" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="71.8379" x="260.1293" y="119.7769">&#20027;&#33410;&#28857;&#26080;&#21709;&#24212;?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="237.1294" y="113.3745">&#26159;</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="343.9672" y="113.3745">&#21542;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="160.9596" x="115.6389" y="137.9688"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="140.9596" x="125.6389" y="159.1074">&#26631;&#35760;&#20026;&#20027;&#35266;&#19979;&#32447; S_DOWN</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="120.7816" x="135.7279" y="191.9375"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="100.7816" x="145.7279" y="213.0762">&#36890;&#30693;&#20854;&#20182; Sentinel</text><polygon fill="#F1F1F1" points="134.26,245.9063,257.9774,245.9063,269.9774,257.9063,257.9774,269.9063,134.26,269.9063,122.26,257.9063,134.26,245.9063" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="123.7173" x="134.26" y="261.7144">&#36229;&#36807;&#21322;&#25968; Sentinel &#21516;&#24847;?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="111.2601" y="255.312">&#26159;</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacing" textLength="10.9999" x="269.9774" y="255.312">&#21542;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="162.7878" x="30.8662" y="279.9063"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="142.7878" x="40.8662" y="301.0449">&#26631;&#35760;&#20026;&#23458;&#35266;&#19979;&#32447; O_DOWN</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="132.7817" x="45.8692" y="333.875"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="112.7817" x="55.8692" y="355.0137">&#36873;&#20030;&#39046;&#23548;&#32773; Sentinel</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="188.0942" x="18.2129" y="387.8438"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="168.0942" x="28.2129" y="408.9824">&#39046;&#23548;&#32773; Sentinel &#21457;&#36215; Failover</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="104.0006" x="60.2597" y="441.8125"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="84.0006" x="70.2597" y="462.9512">&#25361;&#36873;&#19968;&#20010;&#20174;&#33410;&#28857;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="202.5201" x="11" y="495.7813"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="182.5201" x="21" y="516.9199">&#21521;&#20174;&#33410;&#28857;&#21457;&#36865; SLAVEOF NO ONE</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="92.0005" x="66.2598" y="549.75"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="72.0005" x="76.2598" y="570.8887">&#26032;&#20027;&#33410;&#28857;&#19978;&#32447;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="152.001" x="36.2595" y="603.7188"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="132.001" x="46.2595" y="624.8574">&#36890;&#30693;&#20854;&#20182;&#20174;&#33410;&#28857;&#36319;&#38543;&#26032;&#20027;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="120.7816" x="51.8692" y="657.6875"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="100.7816" x="61.8692" y="678.8262">Sentinel &#26356;&#26032;&#37197;&#32622;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="92.0005" x="66.2598" y="711.6563"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="72.0005" x="76.2598" y="732.7949">&#25925;&#38556;&#36716;&#31227;&#23436;&#25104;</text><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="68.0004" x="245.9772" y="279.9063"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="48.0004" x="255.9772" y="301.0449">&#36820;&#22238;&#30417;&#25511;</text><polygon fill="#F1F1F1" points="196.1187,751.625,208.1187,763.625,196.1187,775.625,184.1187,763.625,196.1187,751.625" style="stroke:#181818;stroke-width:0.5;"/><rect fill="#F1F1F1" height="33.9688" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="104.0006" x="343.9775" y="137.9688"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacing" textLength="84.0006" x="353.9775" y="159.1074">&#32487;&#32493;&#30417;&#25511;&#20027;&#33410;&#28857;</text><polygon fill="#F1F1F1" points="296.0483,781.625,308.0483,793.625,296.0483,805.625,284.0483,793.625,296.0483,781.625" style="stroke:#181818;stroke-width:0.5;"/><ellipse cx="296.0483" cy="836.625" fill="none" rx="11" ry="11" style="stroke:#222222;stroke-width:1;"/><ellipse cx="296.0483" cy="836.625" fill="#222222" rx="6" ry="6" style="stroke:#222222;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="296.0483" x2="296.0483" y1="30" y2="50"/><polygon fill="#181818" points="292.0483,40,296.0483,50,300.0483,40,296.0483,44" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="196.1187" x2="196.1187" y1="171.9375" y2="191.9375"/><polygon fill="#181818" points="192.1187,181.9375,196.1187,191.9375,200.1187,181.9375,196.1187,185.9375" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="313.875" y2="333.875"/><polygon fill="#181818" points="108.26,323.875,112.26,333.875,116.26,323.875,112.26,327.875" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="367.8438" y2="387.8438"/><polygon fill="#181818" points="108.26,377.8438,112.26,387.8438,116.26,377.8438,112.26,381.8438" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="421.8125" y2="441.8125"/><polygon fill="#181818" points="108.26,431.8125,112.26,441.8125,116.26,431.8125,112.26,435.8125" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="475.7813" y2="495.7813"/><polygon fill="#181818" points="108.26,485.7813,112.26,495.7813,116.26,485.7813,112.26,489.7813" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="529.75" y2="549.75"/><polygon fill="#181818" points="108.26,539.75,112.26,549.75,116.26,539.75,112.26,543.75" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="583.7188" y2="603.7188"/><polygon fill="#181818" points="108.26,593.7188,112.26,603.7188,116.26,593.7188,112.26,597.7188" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="637.6875" y2="657.6875"/><polygon fill="#181818" points="108.26,647.6875,112.26,657.6875,116.26,647.6875,112.26,651.6875" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="691.6563" y2="711.6563"/><polygon fill="#181818" points="108.26,701.6563,112.26,711.6563,116.26,701.6563,112.26,705.6563" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="122.26" x2="112.26" y1="257.9063" y2="257.9063"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="257.9063" y2="279.9063"/><polygon fill="#181818" points="108.26,269.9063,112.26,279.9063,116.26,269.9063,112.26,273.9063" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="269.9774" x2="279.9774" y1="257.9063" y2="257.9063"/><line style="stroke:#181818;stroke-width:1;" x1="279.9774" x2="279.9774" y1="257.9063" y2="279.9063"/><polygon fill="#181818" points="275.9774,269.9063,279.9774,279.9063,283.9774,269.9063,279.9774,273.9063" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="112.26" y1="745.625" y2="763.625"/><line style="stroke:#181818;stroke-width:1;" x1="112.26" x2="184.1187" y1="763.625" y2="763.625"/><polygon fill="#181818" points="174.1187,759.625,184.1187,763.625,174.1187,767.625,178.1187,763.625" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="279.9774" x2="279.9774" y1="313.875" y2="763.625"/><line style="stroke:#181818;stroke-width:1;" x1="279.9774" x2="208.1187" y1="763.625" y2="763.625"/><polygon fill="#181818" points="218.1187,759.625,208.1187,763.625,218.1187,767.625,214.1187,763.625" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="196.1187" x2="196.1187" y1="225.9063" y2="245.9063"/><polygon fill="#181818" points="192.1187,235.9063,196.1187,245.9063,200.1187,235.9063,196.1187,239.9063" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="248.1293" x2="196.1187" y1="115.9688" y2="115.9688"/><line style="stroke:#181818;stroke-width:1;" x1="196.1187" x2="196.1187" y1="115.9688" y2="137.9688"/><polygon fill="#181818" points="192.1187,127.9688,196.1187,137.9688,200.1187,127.9688,196.1187,131.9688" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="343.9672" x2="395.9779" y1="115.9688" y2="115.9688"/><line style="stroke:#181818;stroke-width:1;" x1="395.9779" x2="395.9779" y1="115.9688" y2="137.9688"/><polygon fill="#181818" points="391.9779,127.9688,395.9779,137.9688,399.9779,127.9688,395.9779,131.9688" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="196.1187" x2="196.1187" y1="775.625" y2="793.625"/><line style="stroke:#181818;stroke-width:1;" x1="196.1187" x2="284.0483" y1="793.625" y2="793.625"/><polygon fill="#181818" points="274.0483,789.625,284.0483,793.625,274.0483,797.625,278.0483,793.625" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="395.9779" x2="395.9779" y1="171.9375" y2="793.625"/><line style="stroke:#181818;stroke-width:1;" x1="395.9779" x2="308.0483" y1="793.625" y2="793.625"/><polygon fill="#181818" points="318.0483,789.625,308.0483,793.625,318.0483,797.625,314.0483,793.625" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="296.0483" x2="296.0483" y1="83.9688" y2="103.9688"/><polygon fill="#181818" points="292.0483,93.9688,296.0483,103.9688,300.0483,93.9688,296.0483,97.9688" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="296.0483" x2="296.0483" y1="805.625" y2="825.625"/><polygon fill="#181818" points="292.0483,815.625,296.0483,825.625,300.0483,815.625,296.0483,819.625" style="stroke:#181818;stroke-width:1;"/><!--SRC=[PPBVIy9G7CNVzrTy7_LVq8S8qWZ21K8zXj2aWQpGqVEIbcN-s4WjfgG8DOYQFfGkb_dFt5_xBtBJJQt7Uy-vvtCut8ASoSiS5qiBaYnAGWwmPP1E5mxsKhk0R8ULYxJu5UV4B4J28tdeuVigdZIseY2V2X94oECWoW74IA_4h26o9vxNB2BxZavca3xUuOzISS_WAWRjFcDrX9mM151FyG1ifB9P2LVBf3c4LIEjGgxgVr7hC6prLp0-XFcuMsJ_kFrhFFXcYhf1zEH_0k2wpZx7aCo8kRCB8RyqaehkHod8VaLEBLZ5rx2cXrVprwvo2UdzxSC4duGK3tmg4MIqXk62o2xFkuObLvk4IMpSTOtwuitI5tOaxO-vuAfLEhM2yARg6XqsVQEcWwqAkT4yGSWL18XWxMMv69irSFk9jdLICtrTEX6pt8OhHXsJEkyBpze7M5WByjdvBm00]--></g></svg>
+
+
+<p>核心点：</p>
+<ul>
+<li>哨兵选Leader，Raft算法<ul>
+<li>多个Sentinel发起选举</li>
+<li>每个Sentinel只能将票投给一个候选者</li>
+<li>谁先拿到超过半数 Sentinel 的选票，就当选为主导故障转移的领导者（leader）</li>
+<li>该领导者 Sentinel 执行节点的“选主”逻辑，挑选一个从节点并将其晋升为主节点</li>
+</ul>
+</li>
+<li>哨兵Leader选主的原则，优先级：<ul>
+<li>优先选择响应良好的从节点<ul>
+<li>发送<code>INFO</code> 命令</li>
+</ul>
+</li>
+<li>优选选择复制进度最接近原主节点的从节点<ul>
+<li>比较从节点<ul>
+<li><code>offset</code>：复制偏移量</li>
+<li><code>master_link_down_time</code>:和主节点断开多久</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>优先选择<code>slave-priority</code>值最小的从节点<ul>
+<li>配置 <code>replica-priority &lt;priority&gt;</code><ul>
+<li>默认值 100</li>
+<li>0 永远不选为主节点</li>
+<li>值越小，优先级越高</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>用随机算法打破平局</li>
+</ul>
+</li>
+</ul>
+<h2 id="Proxy-模式"><a href="#Proxy-模式" class="headerlink" title="Proxy 模式"></a>Proxy 模式</h2><p>参考 Twitter 的 Twemproxy，是redis集群的中间层，简化客户端和redis之间的交互，是redis cluster未应用时，实现负载均衡，分片，连接池功能的替代品</p>
+<h2 id="集群cluster模式"><a href="#集群cluster模式" class="headerlink" title="集群cluster模式"></a>集群cluster模式</h2><p>服务器sharding技术，去中心化的结构（网状结构）</p>
+<p>通过 哈希槽（hash slots）实现数据分片，通过Gossip协议实现节点感知，并在主从结构基础上实现故障转移和高可用。</p>
+<h3 id="目标-1"><a href="#目标-1" class="headerlink" title="目标"></a>目标</h3><ul>
+<li>可接受的写入安全<ul>
+<li>系统尝试（best-effort方式，尽量）保留所有连接到master节点的client发起的写操作</li>
+<li>存在一个小的时间窗口，时间窗内的已确认写操作可能丢失(即，在发生failover之前的小段时间窗内的写操作可能在failover中丢失)</li>
+</ul>
+</li>
+<li>可用性，以下场景总是可用<ul>
+<li>大部分maser节点可用，且对于少部分不可用的master，每个master至少有一个当前可用的slave</li>
+<li>使用 replicas migration 技术，当前没有slave的master会从当前拥有多个slave的master接收到一个新的slave来确保可用型</li>
+</ul>
+</li>
+</ul>
+<h3 id="主要组成"><a href="#主要组成" class="headerlink" title="主要组成"></a>主要组成</h3><ul>
+<li>hash slots：哈希槽</li>
+<li><code>keys hash tags</code>： 分配到同一个hash slot 中； 如果 <code>&#123;hash_key&#125;</code>中存在字符，key的hash值按照hash_key进行计算；</li>
+<li>cluster nodes 属性：节点在 cluster 中存在一个唯一的名字 <code>info cluster</code></li>
+<li>cluster 总线： <code>cluster bus</code> 集群总线通信<ul>
+<li>每个redis cluster节点 有一个额外的TCP断开用来接收其他节点的连接，这个端口与用来接收client命令的普通TCP端口有一个固定的offset。该端口等于普通命令端口加上10000.例如，一个Redis在端口6379客户端连接，那么它的集群总线端口16379也会被打开</li>
+<li>节点间的通信只使用集群总线，同时使用集群总线协议：有不同的类型和大小的帧组成的二进制协议；</li>
+</ul>
+</li>
+<li>集群拓扑：<ul>
+<li>全网拓扑，每个节点都和其他节点之间保持TCP连接； </li>
+<li>在一个拥有N个节点的集群中，每个节点由N-1个TCP传出连接，和N-1个TCP传入连接。</li>
+<li>ping-pong保活，节点使用gossip协议和配置更新机制来避免在正常情况下节点之间交换过多的消息，因此集群内交换的消息数目(相对节点数目)不是指数级的</li>
+</ul>
+</li>
+<li>节点握手：<ul>
+<li>节点总是接受集群总线端口的连接，并且总是会回复ping请求，即使ping来自一个不可信节点。</li>
+<li>认证节点的方式<ul>
+<li><code>meet</code> 消息，强制接受者接受一个节点作为集群的一部分，节点只有在接受到系统管理员的如下命令后，才会向其他节点发送<code>meet</code>消息：<code>cluster meet ip port</code></li>
+<li>如果一个被信任的节点 gossip了某个节点，那么接受到gossip消息的节点也会将那个节点标记为集群的一部分，gossip通知其他节点；</li>
+</ul>
+</li>
+<li>在一个节点上meet就能够在集群中加入一个新的节点</li>
+</ul>
+</li>
+</ul>
+<h3 id="Gossip协议"><a href="#Gossip协议" class="headerlink" title="Gossip协议"></a>Gossip协议</h3><p>分布式系统中用于<strong>信息传播，状态同步和节点发现</strong>的通信机制，具有去中心化，可扩展，最终一致等特点</p>
+<p>在 Redis Cluster 中，Gossip 是 集群总线通信的基础协议，用于让各个节点之间周期性地交换彼此所知道的集群信息。</p>
+<h4 id="核心特性"><a href="#核心特性" class="headerlink" title="核心特性"></a>核心特性</h4><ul>
+<li>去中心化<ul>
+<li>没有中心节点，所有节点平等</li>
+</ul>
+</li>
+<li>定期交换<ul>
+<li>每个节点定期向其他节点发送状态</li>
+</ul>
+</li>
+<li>随机传播<ul>
+<li>每次只和一个&#x2F;少数节点通信</li>
+</ul>
+</li>
+<li>最终一致性<ul>
+<li>信息可能传播较慢，最终所有节点将同步状态</li>
+</ul>
+</li>
+<li>容错性<ul>
+<li>即使网络抖动&#x2F;部分节点故障 也能够继续传播信息</li>
+</ul>
+</li>
+</ul>
+<h4 id="Gossip流程"><a href="#Gossip流程" class="headerlink" title="Gossip流程"></a>Gossip流程</h4><ol>
+<li>周期性的触发<ul>
+<li>每个Redis节点每100ms左右从集群中随机挑选若干节点进行 Gossip 通信</li>
+</ul>
+</li>
+<li>发送 PING 消息<ul>
+<li>Gossip 信息嵌套在 Cluster Bus 的 PING 包中</li>
+<li>包含：<ul>
+<li>自己的状态</li>
+<li>对其他若干节点的转述信息</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>接受并更新状态<ul>
+<li>收到 PING 或 PONG 包后，接收方根据其中的 Gossip 信息更新自己对整个集群的状态视图。</li>
+</ul>
+</li>
+<li>传播失败消息<ul>
+<li>如果某个节点连续一段时间未回应心跳，会被标记为 PFAIL</li>
+<li>一旦半数以上节点 Gossip 传播这个状态并达成一致，就会标记为 FAIL，并触发故障转移</li>
+</ul>
+</li>
+</ol>
+<h4 id="消息类型"><a href="#消息类型" class="headerlink" title="消息类型"></a>消息类型</h4><ul>
+<li>Meet消息<ul>
+<li>通知新节点加入。消息发送者通知接收者加入到当前集群，meet消息通信正常完成后，接收节点会加入到集群中并进行周期性的ping、pong消息交换</li>
+</ul>
+</li>
+<li>PING消息<ul>
+<li>集群内交换最频繁的消息，集群内每个节点每秒向多个其他节点发送ping消息，用于检测节点是否在线和交换彼此状态信息</li>
+</ul>
+</li>
+<li>PONG消息<ul>
+<li>当接收到ping、meet消息时，作为响应消息回复给发送方确认消息正常通信。pong消息内部封装了自身状态数据。节点也可以向集群内广播自身的pong消息来通知整个集群对自身状态进行更新</li>
+</ul>
+</li>
+<li>FAIL消息<ul>
+<li>当节点判定集群内另一个节点下线时，会向集群内广播一个fail消息，其他节点接收到fail消息之后把对应节点更新为下线状态</li>
+</ul>
+</li>
+</ul>
+<h4 id="故障恢复-failover"><a href="#故障恢复-failover" class="headerlink" title="故障恢复 failover"></a>故障恢复 failover</h4><p>slave发现master变为FAIL状态，尝试进行 failover，成为新的master；</p>
+<p>由于挂掉的master可能会有多个slave。Failover的过程需要经过类Raft协议的过程在整个集群内达到一致， 其过程如下：</p>
+<ol>
+<li>slave发现自己的master变为FAIL</li>
+<li>将自己记录的集群currentEpoch（逻辑版本号）递增，并广播<code>FAILOVER_AUTH_REQUEST</code>给所有的master节点</li>
+<li>其他非故障的master节点收到该信息，判断请求者的合法性，并发送 <code>FAILOVER_AUTH_ACK</code>,对每个epoch只发送一次ack</li>
+<li>尝试 failover 的slave收集FAILOVER_AUTH_ACK</li>
+<li>超过活跃master节点 半数后变为新的master</li>
+<li>新的 master 会通过带角色信息的 PONG 消息，通知其他节点其角色变化，并通过 CLUSTER SETSLOT 宣布对 slot 的主控权</li>
+</ol>
+<p>通过epoch（版本号），保证一轮中的投票唯一</p>
+<h4 id="扩缩容"><a href="#扩缩容" class="headerlink" title="扩缩容"></a>扩缩容</h4><p>扩容为例，缩容类似：</p>
+<ol>
+<li>将新节点加入集群，可以通过在集群中任何一个客户端执行cluster meet 新节点ip:端口，或者通过redis-trib add node添加，新添加的节点默认在集群中都是主节点；</li>
+<li>迁移数据，确定哪些槽需要被迁移到目标节点，然后获取槽中的key，将槽中的key全部迁移，</li>
+<li>向集群中所有主节点广播槽（数据）迁移到目标节点</li>
+</ol>
+<p>命令：</p>
+<ul>
+<li>targetNodeId 新节点：<code>cluster setslot &#123;slot&#125; importing &#123;sourceNodeId&#125;</code></li>
+<li>sourceNodeId 源数据节点：<code>cluster setslot &#123;slot&#125; migrate &#123;targetNodeId&#125;</code></li>
+<li>广播槽已经迁移完成 <code>cluster setslot &#123;slot&#125; node &#123;targetNodeId&#125;</code></li>
+</ul>
+<p>NOTE：<br>使用 <code>redis-cli --cluster reshard</code>命令，会自动完成扩缩容的过程</p>
+<h5 id="请求重定向"><a href="#请求重定向" class="headerlink" title="请求重定向"></a>请求重定向</h5><p>当访问的key值，不在当前节点时，引导到正确的节点</p>
+<p>两种重定向机制：</p>
+<ul>
+<li><code>MOVED</code>:客户端访问的slot已经迁走，通知客户端更新 slot-&gt;node映射</li>
+<li><code>ASK</code>：slot正在迁移中，下次请求携带 <code>ASKING</code> 命令，不修改映射（因为迁移未完成）</li>
+</ul>
+<h2 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h2><ul>
+<li>槽的数量问题：16384(2^14)（16k）：crc16最多（2^16-1）但是会导致心跳包的8k；过大；使用希望将心跳包的大小控制在2k；使用bitmap压缩后16384个槽使用2k空间；</li>
+<li>redis cluster发布订阅问题（为什么不使用）<ul>
+<li>在集群模式下，所有的publish命令都会向所有节点（包括从节点）进行广播，造成每条publish数据都会在集群内所有节点传播一次，加重了带宽负担，</li>
+<li>对于在有大量节点的集群中频繁使用pub，会严重消耗带宽，不建议使用</li>
+</ul>
+</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/redis/" class="category-chain-item">redis</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/redis/" class="print-no-link">#redis</a>
+      
+        <a href="/tags/cluster/" class="print-no-link">#cluster</a>
+      
+        <a href="/tags/sentinel/" class="print-no-link">#sentinel</a>
+      
+        <a href="/tags/proxy/" class="print-no-link">#proxy</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>高可用</div>
+      <div>https://serendipityconfusion.github.io/2025/04/29/redis/cluster/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>serendipityConfusion</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2025年4月29日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2025/05/07/redis/scene/" title="应用场景">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">应用场景</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/04/24/redis/persistence/" title="Redis 持久化机制">
+                        <span class="hidden-mobile">Redis 持久化机制</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#comments', function() {
+      var light = 'github-light';
+      var dark = 'github-dark';
+      var schema = document.documentElement.getAttribute('data-user-color-scheme');
+      if (schema === 'dark') {
+        schema = dark;
+      } else {
+        schema = light;
+      }
+      window.UtterancesThemeLight = light;
+      window.UtterancesThemeDark = dark;
+      var s = document.createElement('script');
+      s.setAttribute('src', 'https://utteranc.es/client.js');
+      s.setAttribute('repo', 'serendipityConfusion/serendipityConfusion.github.io');
+      s.setAttribute('issue-term', 'pathname');
+      
+      s.setAttribute('label', 'utterances');
+      
+      s.setAttribute('theme', schema);
+      s.setAttribute('crossorigin', 'anonymous');
+      document.getElementById('comments').appendChild(s);
+    })
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  <script>
+  Fluid.utils.createScript('https://cdn.jsdelivr.net/npm/mermaid@11.6.0/dist/mermaid.min.js', function() {
+    mermaid.initialize({"theme":"default"});
+
+    Fluid.utils.listenDOMLoaded(function() {
+      Fluid.events.registerRefreshCallback(function() {
+        if ('mermaid' in window) {
+          mermaid.init();
+        }
+      });
+    });
+  });
+</script>
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script  src="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js" ></script>
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

@@ -1,0 +1,780 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/global/icon.png">
+  <link rel="icon" href="/global/icon.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="serendipityConfusion">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="GCGarbage Collection 垃圾回收，自动内存管理的机制；当程序申请的内存不再被需要时，回收内存复用，获取还给操作系统；针对内存级别资源的自动回收过程，就是垃圾回收，负责垃圾回收的组件就是垃圾回收器；为什么需要垃圾回收，人力有限，避免内存泄露问题。牺牲一部分性能，提高程序的可用性，可靠性和稳定性； 垃圾回收器的执行过程被划分为两个独立的组件：  赋值器（Mutator）：用户态代码，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GC">
+<meta property="og:url" content="https://serendipityconfusion.github.io/2024/03/01/golang/gc/index.html">
+<meta property="og:site_name" content="serendipityConfusion">
+<meta property="og:description" content="GCGarbage Collection 垃圾回收，自动内存管理的机制；当程序申请的内存不再被需要时，回收内存复用，获取还给操作系统；针对内存级别资源的自动回收过程，就是垃圾回收，负责垃圾回收的组件就是垃圾回收器；为什么需要垃圾回收，人力有限，避免内存泄露问题。牺牲一部分性能，提高程序的可用性，可靠性和稳定性； 垃圾回收器的执行过程被划分为两个独立的组件：  赋值器（Mutator）：用户态代码，">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://serendipityconfusion.github.io/image/gc/three-color.png">
+<meta property="article:published_time" content="2024-03-01T09:00:00.000Z">
+<meta property="article:modified_time" content="2025-06-11T16:53:01.000Z">
+<meta property="article:author" content="serendipityConfusion">
+<meta property="article:tag" content="内存管理">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://serendipityconfusion.github.io/image/gc/three-color.png">
+  
+  
+  
+  <title>GC - serendipityConfusion</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"serendipityconfusion.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"auto"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null},"woyaola":null,"cnzz":null},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>serendipityConfusion</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="GC"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-03-01 17:00" pubdate>
+          2024年3月1日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.5k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          21 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">GC</h1>
+            
+              <p id="updated-time" class="note note-info" style="">
+                
+                  
+                    本文最后更新于 2025年6月12日 凌晨
+                  
+                
+              </p>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="GC"><a href="#GC" class="headerlink" title="GC"></a>GC</h1><p><code>Garbage Collection</code> 垃圾回收，自动内存管理的机制；当程序申请的内存不再被需要时，回收内存复用，获取还给操作系统；针对内存级别资源的自动回收过程，就是垃圾回收，负责垃圾回收的组件就是垃圾回收器；为什么需要垃圾回收，人力有限，避免内存泄露问题。牺牲一部分性能，提高程序的可用性，可靠性和稳定性；</p>
+<p>垃圾回收器的执行过程被划分为两个独立的组件：</p>
+<ul>
+<li>赋值器（Mutator）：用户态代码，对于垃圾回收器来说，用户态代码只会修改，增加对象之间的引用关系；</li>
+<li>回收器（Collector）：负责执行垃圾回收的代码；</li>
+</ul>
+<h2 id="根对象（根集合）"><a href="#根对象（根集合）" class="headerlink" title="根对象（根集合）"></a>根对象（根集合）</h2><p>指赋值器不需要通过其他对象就可以直接访问到的对象，通过Root对象, 可以追踪到其他存活的对象；</p>
+<ul>
+<li>全局变量：编译器就确定存在整个程序生命周期的变量；</li>
+<li>执行栈：每个goroutine都有自己的执行栈，栈上包含栈变量和指向堆的指针；</li>
+<li>寄存器：寄存器的值可能表示一个指针，参与计算的指针可能指向某些赋值器分配的堆内存区块；</li>
+</ul>
+<h1 id="常见的GC实现方式"><a href="#常见的GC实现方式" class="headerlink" title="常见的GC实现方式"></a>常见的GC实现方式</h1><h2 id="引用计数式GC"><a href="#引用计数式GC" class="headerlink" title="引用计数式GC"></a>引用计数式GC</h2><p>每个对象自身包含一个被引用的计数器，当计数器为0时自动得到回收，方法缺陷较多（循环引用），追求高性能通常不被使用，Python，OC等使用引用计数方式的GC；</p>
+<p>实现简单，实时性强；</p>
+<h2 id="追踪式GC"><a href="#追踪式GC" class="headerlink" title="追踪式GC"></a>追踪式GC</h2><p><code>核心：可达性即为可用性</code></p>
+<p>一类基于”可达性”分析来进行内存回收的算法， 从根对象触发，通过追踪对象的引用关系，逐步找到所有能够被访问到的对象，这些对象被认为可存活，其他未被访问到的对象，被认为是垃圾，可回收；</p>
+<h3 id="标记清除-mark-swap"><a href="#标记清除-mark-swap" class="headerlink" title="标记清除 mark-swap"></a>标记清除 mark-swap</h3><p>分为标记和清除两个阶段。标记阶段从根对象开始，将确定存活的对象进行标记；清除阶段遍历整个堆内存，回收未被标记的对象；会产生大量的内存碎片；</p>
+<h3 id="标记压缩-mark-compact"><a href="#标记压缩-mark-compact" class="headerlink" title="标记压缩 mark-compact"></a>标记压缩 mark-compact</h3><p>和标记清除类似，但是清除部分不是直接清除未标记对象，而是将存活的对象压缩到内存的另一端，更新引用，再回收剩余的内存。避免了内存碎片，但是对于大对象的移动成本较高；</p>
+<h3 id="分代收集-generational"><a href="#分代收集-generational" class="headerlink" title="分代收集 generational"></a>分代收集 generational</h3><p>根据对象的生命周期不同，将内存划分为新生代和老年代，可以针对不同代的特点采用最适合的算法，提高垃圾回收的效率。缺点就是管理复杂，需要合理划分不同代的大小以及不同代的晋升策略。</p>
+<p>新创建的对象放入新生代，将经过一定次数GC（策略）仍然存活的新生代对象移动到老年代。</p>
+<h3 id="复制-copying"><a href="#复制-copying" class="headerlink" title="复制 copying"></a>复制 copying</h3><p>将内存分为两块，新分配的对象放在其中一块内存中，当这块内存满了，就从根对象开始，复制所有可达的对象到另一块内存中，然后回收原来的内存区域。</p>
+<p>避免了内存碎片，但是需要两倍的内存空间。主要适用于频繁分配和回收对象的场景，可以减少碎片的产生。</p>
+<h3 id="增量和并发-incremental-concurrent"><a href="#增量和并发-incremental-concurrent" class="headerlink" title="增量和并发 incremental concurrent"></a>增量和并发 incremental concurrent</h3><p>对于上述的优化，目的是减少STW(stop the world)的时间，降低GC对于程序运行的影响；</p>
+<p>增量垃圾回收是将垃圾回收的工作分解成多个小步骤，交错在程序运行中执行；并发垃圾回收则是让垃圾回收和程序运行在不同的线程中并发执行。</p>
+<h1 id="Golang的垃圾回收算法"><a href="#Golang的垃圾回收算法" class="headerlink" title="Golang的垃圾回收算法"></a>Golang的垃圾回收算法</h1><h2 id="三色标记法"><a href="#三色标记法" class="headerlink" title="三色标记法"></a>三色标记法</h2><p><strong>三色标记法</strong>的关键是理解对象的<strong>三色抽象</strong>以及<strong>波面（wavefront）推进</strong>这两个概念。三色抽象只是一种描述追踪式回收器的方法，在实践中并没有实际含义，它的重要作用在于从逻辑上严密推导标记清理这种垃圾回收方法的正确性。也就是说，当我们谈及三色标记法时，通常指标记清扫的垃圾回收。</p>
+<p><strong>三色抽象（将对象的状态抽象为三种状态）</strong></p>
+<ul>
+<li>白色对象（可能死亡）：未被回收器访问到的对象。回收开始阶段，所有对象都为白色，回收结束阶段，所有白色对象为不可达对象即垃圾；</li>
+<li>灰色对象（波面）：已经被回收器访问到的对象，但回收器需要对于其中一个&#x2F;多个指针进行扫面，因为他们可能还指向存活的白色对象；</li>
+<li>黑色对象（确认存活）：已经被回收器访问到的对象，其中的每个字段都已经被扫描，黑色对象中任何一个指针对象都不可能直接指向白色对象；</li>
+</ul>
+<p>三种不变性所定义的回收过程其实是一个<strong>波面</strong>不断前进的过程，这个波面同时也是黑色对象和白色对象的边界，灰色对象就是这个波面。</p>
+<p><img src="/image/gc/three-color.png" srcset="/img/loading.gif" lazyload></p>
+<p>如果单纯执行三色标记法的GC，会出现因为标记过程中，对象引用变化导致的对象被错误的回收等各种问题。需要借助STW进行保证GC的正确执行；</p>
+<p><strong>STW的过程有明显的资源浪费，对所有的用户程序都有很大影响；</strong></p>
+<p>总结对象丢失，需要同时满足以下条件：</p>
+<ul>
+<li>白色对象被黑色对象引用</li>
+<li>灰色对象和白色对象之间的可达关系被破坏</li>
+</ul>
+<h2 id="屏障机制"><a href="#屏障机制" class="headerlink" title="屏障机制"></a>屏障机制</h2><p>为了避免STW，需要破坏导致对象丢失的条件，引入两种限制条件分别针对上面丢失的情况：</p>
+<ul>
+<li>强三色不变式：<strong>黑色对象不能引用白色对象</strong>（不会存在白色对象被误删的情况）</li>
+<li>弱三色不变式：<strong>所有被黑色对象引用的白色对象都处于灰色保护状态。</strong>（<strong>黑色对象可以引用白色对象，但是白色对象在可达的链路上游存在灰色对象</strong>）</li>
+</ul>
+<h2 id="插入写屏障（强三色不等式）：白色强制变为灰色"><a href="#插入写屏障（强三色不等式）：白色强制变为灰色" class="headerlink" title="插入写屏障（强三色不等式）：白色强制变为灰色"></a>插入写屏障（强三色不等式）：白色强制变为灰色</h2><p>不会存在黑色对象引用白色对象的情况；v1.5<br>插入写屏障仅会在堆内存中生效，不对栈空间生效，这是因为go在并发运行时，大部分的操作都发生在栈上，函数调用会非常频繁。数十万goroutine的栈操作都进行屏障保护自然会有性能问题。</p>
+<p><strong>GC都是针对堆内存的活动</strong>，对象分布位置在栈和堆上，因为函数调用弹出的频繁使用，所以 <strong>插入屏障</strong> 机制，在栈空间的对象操作中不使用，只在<strong>堆空间对象</strong>的操作中；</p>
+<h3 id="优点："><a href="#优点：" class="headerlink" title="优点："></a>优点：</h3><p>保证标记算法和用户代码的并发执行</p>
+<h3 id="缺点："><a href="#缺点：" class="headerlink" title="缺点："></a>缺点：</h3><p>由于栈上的对像没有插入写机制，在扫描完成后，仍然可能存在栈的黑色对象，指向堆上的白色对象，所以在最后需要对栈上的空间进行STW，防止对象误删除。</p>
+<p>在一次正常的三色标记流程结束后，需要对栈上重新进行一次stw，然后再rescan一次。</p>
+<h2 id="删除写屏障（弱三色不等式）：-在删除引用时，如果被删除引用的对象自身为灰色或者白色，那么被标记为灰色。"><a href="#删除写屏障（弱三色不等式）：-在删除引用时，如果被删除引用的对象自身为灰色或者白色，那么被标记为灰色。" class="headerlink" title="删除写屏障（弱三色不等式）： 在删除引用时，如果被删除引用的对象自身为灰色或者白色，那么被标记为灰色。"></a>删除写屏障（弱三色不等式）： 在删除引用时，如果被删除引用的对象自身为灰色或者白色，那么被标记为灰色。</h2><p>白色对象始终会被保护，灰色对象到白色对象的路径不会断；v1.5</p>
+<ol>
+<li>删除写屏障也叫基于快照的写屏障方案，必须在起始时，STW 扫描整个栈（注意了，是所有的 goroutine 栈），保证<strong>所有堆上在用的对象</strong>都处于灰色保护下，保证的是弱三色不变式；</li>
+<li>由于起始快照的原因，起始也是执行 STW，删除写屏障不适用于栈特别大的场景，栈越大，STW 扫描时间越长</li>
+<li>删除写屏障会导致扫描进度（波面）的后退，所以扫描精度不如插入写屏障；</li>
+</ol>
+<p>如果不起始扫描所有栈，可能出现丢数据（栈上对象不触发屏障）</p>
+<h3 id="优点：-1"><a href="#优点：-1" class="headerlink" title="优点："></a>优点：</h3><p>保护对象不丢失</p>
+<h3 id="缺点：-1"><a href="#缺点：-1" class="headerlink" title="缺点："></a>缺点：</h3><p>一个对象的引用被删除后，即使没有其他存活的对象引用它，它仍然会活到下一轮。产生很多的冗余扫描成本，且降低了回收精度。</p>
+<h2 id="混合写屏障：插入屏障和删除屏障进行混合，尽可能减少-STW-的时间。"><a href="#混合写屏障：插入屏障和删除屏障进行混合，尽可能减少-STW-的时间。" class="headerlink" title="混合写屏障：插入屏障和删除屏障进行混合，尽可能减少 STW 的时间。"></a>混合写屏障：插入屏障和删除屏障进行混合，尽可能减少 STW 的时间。</h2><p>核心定义：</p>
+<ul>
+<li>GC刚开始时，将栈上的<strong>所有可达对象</strong>标记为黑色</li>
+<li>GC期间任何在栈上创建的对象都为黑色<ul>
+<li>不需要对栈上的对象，stop the world，保证栈上的对象不会丢失</li>
+</ul>
+</li>
+<li>堆上被删除的对象标记为灰色</li>
+<li>堆上新增加的对象标记为灰色</li>
+</ul>
+<p>混合写屏障扫描栈虽然没有 STW，但是扫描某一个具体的栈的时候，还是要停止这个 goroutine 赋值器的工作（针对一个 goroutine 栈来说，是暂停扫的，要么全灰，要么全黑哈，原子状态切换）；</p>
+<h1 id="GC触发的情况"><a href="#GC触发的情况" class="headerlink" title="GC触发的情况"></a>GC触发的情况</h1><ul>
+<li>内存分配量达到阈值触发GC<ul>
+<li>当程序使用的内存超过一定阈值时，垃圾回收器会被触发以回收不再使用的内存空间。</li>
+</ul>
+</li>
+<li>定期触发GC<ul>
+<li>使用系统监控，当超过两分钟没有产生任何 GC 时，强制触发 GC。</li>
+</ul>
+</li>
+<li>手动触发GC<ul>
+<li><code>runtime.GC()</code> 函数时，可以强制执行一次垃圾回收操作</li>
+</ul>
+</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/golang/" class="category-chain-item">golang</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" class="print-no-link">#内存管理</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>GC</div>
+      <div>https://serendipityconfusion.github.io/2024/03/01/golang/gc/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>serendipityConfusion</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年3月1日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/03/01/algorithm/rand/" title="rand">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">rand</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/03/01/golang/gmp/" title="GMP模型">
+                        <span class="hidden-mobile">GMP模型</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#comments', function() {
+      var light = 'github-light';
+      var dark = 'github-dark';
+      var schema = document.documentElement.getAttribute('data-user-color-scheme');
+      if (schema === 'dark') {
+        schema = dark;
+      } else {
+        schema = light;
+      }
+      window.UtterancesThemeLight = light;
+      window.UtterancesThemeDark = dark;
+      var s = document.createElement('script');
+      s.setAttribute('src', 'https://utteranc.es/client.js');
+      s.setAttribute('repo', 'serendipityConfusion/serendipityConfusion.github.io');
+      s.setAttribute('issue-term', 'pathname');
+      
+      s.setAttribute('label', 'utterances');
+      
+      s.setAttribute('theme', schema);
+      s.setAttribute('crossorigin', 'anonymous');
+      document.getElementById('comments').appendChild(s);
+    })
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script  src="https://lib.baomitu.com/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js" ></script>
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
